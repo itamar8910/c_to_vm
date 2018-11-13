@@ -69,25 +69,32 @@ def to_str(instruction):
         return f'{opcode} {arg1} {arg2}'
     if opcode in FLOW_OPCODES or opcode in SPECIAL_OPCODES:
         return f'{opcode}'
-    
 
 def from_str(s):
+    def maybe_cast_arg(arg):
+        "this will try to cast arg to int, otherwise assumes its a register"
+        try:
+            return int(arg)
+        except ValueError:
+            return arg
+
     args = s.split()
     opcode = args[0]
     if opcode in ARITH_OPCODES:
         dst = args[1]
         arg1 = args[2] 
         arg2 = args[3] 
-        return {'op': opcode, 'dst': dst, 'arg1': arg1, 'arg2': arg2}
+        return {'op': opcode, 'dst': dst, 'arg1': arg1, 'arg2': maybe_cast_arg(arg2)}
     if opcode in DATA_OPCODES:
         dst = args[1]
         src = args[2] 
-        return {'op': opcode, 'dst': dst, 'src': src}
+        return {'op': opcode, 'dst': dst, 'src': maybe_cast_arg(src)}
     if opcode in TEST_OPCODES:
         arg1 = args[1] 
         arg2 = args[2] 
-        return {'op': opcode, 'arg1': arg1, 'arg2': arg2}
+        return {'op': opcode, 'arg1': arg1, 'arg2': maybe_cast_arg(arg2)}
     if opcode in FLOW_OPCODES or opcode in SPECIAL_OPCODES:
         return {'op': opcode}
+    raise Exception('INVALID OPCODE:{}'.format(opcode))
 
 

@@ -32,7 +32,7 @@ def valid_address(address):
 
 def mem_set(val, address):
     assert valid_address(address)
-    assert type(val) in [dict, int, float]
+    assert type(val) in [dict, int]
     MEM[address] = val
 
 def mem_get(address):
@@ -52,9 +52,9 @@ def fetch():
 
 def execute_arith(instruction):
     opcode = instruction['op']
-    dst = opcode['dst']
-    arg1 = opcode['arg1']
-    arg2 = opcode['arg2']
+    dst = instruction['dst']
+    arg1 = instruction['arg1']
+    arg2 = instruction['arg2']
     assert dst in REGS
     assert arg1 in REGS
     arg1_val = reg_get(arg1)
@@ -114,7 +114,8 @@ def execute(instruction):
         execute_flow(instruction)
     elif opcode in SPECIAL_OPCODES:
         execute_special(instruction)
-    raise Exception('Invalid instruction:{}'.format(instruction)) 
+    else:
+        raise Exception('Invalid instruction:{}'.format(instruction)) 
 
 def start():
     while running:
@@ -124,8 +125,8 @@ def start():
 
 
 
-if __name__ == "__main__":
-    start()
+# if __name__ == "__main__":
+#     start()
 
 
 
