@@ -1,4 +1,7 @@
 
+from cpu.instructions import ARITH_OPCODES, DATA_OPCODES, TEST_OPCODES, FLOW_OPCODES, SPECIAL_OPCODES
+
+running = True
 NUM_REGISTERS = 8  # number of general purpose registers
 MEM_SIZE = 10000
 
@@ -23,53 +26,6 @@ REGS = {
 } 
 
 
-"""
-arg1 must be a register
-arg2 must be a register
-arg3 can be either a register or an immediate value
-"""
-ARITH_OPCODES = {
-    'ADD' : lambda x, y: x + y,
-    'SUB': lambda x, y: x - y,
-    'MUL': lambda x, y: x * y,
-    'DIV': lambda x, y: x / y,
-    'MOD': lambda x,y : x % y,
-    'AND': lambda x, y: x & y,
-    'OR': lambda x, y : x | y,
-    'SHR': lambda x, y: x << y,
-    'SHL': lambda x, y: x >> y
-    }
-
-DATA_OPCODES = {
-    # store in memory
-    # arg1 must be a register, arg2 can be either register or immediate
-    # MEM[arg1] = arg2
-    'STR': None,  
-
-    # load from memory
-    # arg1 must be a register 
-    # args2 can be either register or immediate
-    # REG['arg1'] = MEM['arg2']
-    'LOAD': None, # load from memory
-
-    # move value to register  
-    # arg1 must be a register
-    # arg2 can be either a register or an immediate
-    # REG[arg1] = arg2
-    'MOV': None,
-}
-
-TEST_OPCODES = {
-    'TSTE': lambda x, y : x == y,
-    'TSTG': lambda x, y: x > y,
-    'TSTL': lambda x, y: x < y,
-}
-# instructions that affect IR
-FLOW_OPCODES = {
-    'JUMP': lambda : True,
-    'TJMP': lambda : REGS['ZR'] ,
-    'FJMP': lambda : not REGS['ZR']
-}
 
 def valid_address(address):
     return address >= 0 and address < MEM_SIZE
@@ -136,8 +92,15 @@ def execute_test(instruction):
 def execute_flow(instruction):
     opcode = instruction['op']
     arg = instruction['arg']
-    if FLOW_OPCODES[opcode]:
+    if FLOW_OPCODES[opcode](REGS['ZR']):
         REGS['IP'] = arg - 1  # -1 because IP is incrementd at end of the cpu cycle in any case
+
+def execute_special(instruction):
+    opcode = instruction['op']
+    if opcode == 'HALT':
+        global running
+        running = False
+
 
 def execute(instruction):
     opcode = instruction['op']
@@ -149,10 +112,12 @@ def execute(instruction):
         execute_test(instruction)
     elif opcode in FLOW_OPCODES:
         execute_flow(instruction)
+    elif opcode in SPECIAL_OPCODES:
+        execute_special(instruction)
     raise Exception('Invalid instruction:{}'.format(instruction)) 
 
 def start():
-    while True:
+    while running:
        cur_instruction = fetch()
        execute(cur_instruction)
        REGS['IP'] = REGS['IP'] + 1
