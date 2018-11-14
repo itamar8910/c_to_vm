@@ -93,7 +93,7 @@ def execute_flow(instruction):
     opcode = instruction['op']
     arg = instruction['arg']
     if FLOW_OPCODES[opcode](REGS['ZR']):
-        REGS['IP'] = arg - 1  # -1 because IP is incrementd at end of the cpu cycle in any case
+        REGS['IP'] = arg - 1  # -1 because IP will be incrementd at end of the cpu cycle in any case
 
 def execute_special(instruction):
     opcode = instruction['op']
