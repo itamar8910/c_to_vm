@@ -248,5 +248,82 @@ def test_rel_address():
     assert symbol_table['SKIP'] == 3
     assert instructions[1]['offset'] == 2
 
+def test_jump():
+    program = """
+        MOV R1 3
+        JUMP SKIP
+        MOV R1 4
+        SKIP:
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 3
+
+def test_jump2():
+    program = """
+        MOV R1 3
+        JUMP SKIP
+        L2:
+        MOV R1 4
+        JUMP END
+        SKIP:
+        JUMP L2
+        MOV R1 5
+        END:
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 4
+
+def test_tjump_pos():
+    program = """
+        MOV R1 3
+        TSTE R1 3
+        TJMP SKIP
+        MOV R1 4
+        SKIP:
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 3
+
+def test_tjump_neg():
+    program = """
+        MOV R1 3
+        TSTE R1 2
+        TJMP SKIP
+        MOV R1 4
+        SKIP:
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 4
+
+def test_fjump_pos():
+    program = """
+        MOV R1 3
+        TSTE R1 2
+        FJMP SKIP
+        MOV R1 4
+        SKIP:
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 3
+
+def test_fjump_neg():
+    program = """
+        MOV R1 3
+        TSTE R1 3
+        FJMP SKIP
+        MOV R1 4
+        SKIP:
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 4
+
+
+# TODO: test tjump, fjump
 if __name__ == "__main__":
     test_str_imm()
