@@ -21,7 +21,7 @@ REGS = {
        'IP': 0, # instruction pointer
        'SP': 0, # stack pointer
        'BP': 0, # base pointer
-       'ZR' : 0, # contains the boolean result of the TEST instruction
+       'ZR' : 0, # contains the boolean(1 or 0) result of the last TEST instruction
     }
 } 
 
@@ -30,7 +30,7 @@ REGS = {
 def valid_address(address):
     return address >= 0 and address < MEM_SIZE
 
-def mem_set(val, address):
+def mem_set(address, val):
     assert valid_address(address)
     assert type(val) in [dict, int]
     MEM[address] = val
@@ -118,6 +118,8 @@ def execute(instruction):
         raise Exception('Invalid instruction:{}'.format(instruction)) 
 
 def start():
+    global running
+    running = True
     while running:
        cur_instruction = fetch()
        execute(cur_instruction)

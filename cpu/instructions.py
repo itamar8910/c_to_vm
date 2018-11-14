@@ -8,12 +8,12 @@ ARITH_OPCODES = {
     'ADD' : lambda x, y: x + y,
     'SUB': lambda x, y: x - y,
     'MUL': lambda x, y: x * y,
-    'DIV': lambda x, y: x / y,
+    'DIV': lambda x, y: x // y,
     'MOD': lambda x,y : x % y,
     'AND': lambda x, y: x & y,
     'OR': lambda x, y : x | y,
-    'SHR': lambda x, y: x << y,
-    'SHL': lambda x, y: x >> y
+    'SHL': lambda x, y: x << y,
+    'SHR': lambda x, y: x >> y
     }
 
 DATA_OPCODES = {
@@ -36,9 +36,9 @@ DATA_OPCODES = {
 }
 
 TEST_OPCODES = {
-    'TSTE': lambda x, y : x == y,
-    'TSTG': lambda x, y: x > y,
-    'TSTL': lambda x, y: x < y,
+    'TSTE': lambda x, y : int(x == y),
+    'TSTG': lambda x, y: int(x > y),
+    'TSTL': lambda x, y: int(x < y),
 }
 # instructions that affect IR
 FLOW_OPCODES = {
