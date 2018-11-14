@@ -93,7 +93,9 @@ def from_str(s):
         arg1 = args[1] 
         arg2 = args[2] 
         return {'op': opcode, 'arg1': arg1, 'arg2': maybe_cast_arg(arg2)}
-    if opcode in FLOW_OPCODES or opcode in SPECIAL_OPCODES:
+    if opcode in FLOW_OPCODES:
+        return {'op': opcode, 'offset': args[1]}
+    if opcode in SPECIAL_OPCODES:
         return {'op': opcode}
     raise Exception('INVALID OPCODE:{}'.format(opcode))
 

@@ -236,5 +236,17 @@ def test_tstl_no():
     run_program(assemble(program))
     assert reg_get('ZR') == 0
 
+def test_rel_address():
+    program = """
+        MOV R1 3
+        JUMP SKIP
+        MOV R1 4
+        SKIP:
+        HALT
+    """
+    instructions, symbol_table = assemble(program, ret_symbol_table=True)
+    assert symbol_table['SKIP'] == 3
+    assert instructions[1]['offset'] == 2
+
 if __name__ == "__main__":
     test_str_imm()
