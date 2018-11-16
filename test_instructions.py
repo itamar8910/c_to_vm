@@ -185,6 +185,7 @@ def test_tste_no():
         HALT
     """
     run_program(assemble(program))
+    assert reg_get('ZR') == 0
  
 
 def test_tste_imm_yes():
@@ -323,7 +324,3 @@ def test_fjump_neg():
     run_program(assemble(program))
     assert reg_get('R1') == 4
 
-
-# TODO: test tjump, fjump
-if __name__ == "__main__":
-    test_str_imm()

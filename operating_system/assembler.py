@@ -37,7 +37,7 @@ def assemble(program, ret_symbol_table = False):
             instructions.append(instruction)
     
     if ret_symbol_table:
-        # also return symbol table for debug purposes
+        # also return symbol table for debug/ linkage purposes
         return instructions, symbol_table
 
     return instructions
