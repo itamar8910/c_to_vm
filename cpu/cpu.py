@@ -1,9 +1,11 @@
 
 from cpu.instructions import ARITH_OPCODES, DATA_OPCODES, TEST_OPCODES, FLOW_OPCODES, SPECIAL_OPCODES
+from cpu.instructions import to_str
 
 running = True
 NUM_REGISTERS = 8  # number of general purpose registers
 MEM_SIZE = 10000
+
 
 
 """
@@ -65,10 +67,12 @@ def execute_arith(instruction):
 
 def execute_data(instruction):
     opcode = instruction['op']
-    dst = instruction['dst']
-    src = instruction['src']
-    assert dst in REGS
-    src_val = reg_get(src) if src in REGS else src
+    dst = instruction.get('dst', None)
+    src = instruction.get('src', None)
+    if dst:
+        assert dst in REGS
+    if src is not None:
+        src_val = reg_get(src) if src in REGS else src
     if opcode == 'STR':
         dst_val = reg_get(dst)
         mem_set(dst_val, src_val)
@@ -76,6 +80,13 @@ def execute_data(instruction):
         reg_set(dst, mem_get(src_val))
     elif opcode == 'MOV':
         reg_set(dst, src_val)
+    elif opcode == 'PUSH':
+        MEM[REGS['SP']] = src_val
+        REGS['SP'] -= 1
+    elif opcode == 'POP':
+        reg_set(dst, MEM[REGS['SP']+1])
+        REGS['SP'] += 1
+    
 
 
 def execute_test(instruction):
@@ -92,7 +103,12 @@ def execute_test(instruction):
 def execute_flow(instruction):
     opcode = instruction['op']
     offset = instruction['offset']
-    if FLOW_OPCODES[opcode](REGS['ZR']):
+    if FLOW_OPCODES[opcode](REGS['ZR']):  # call, jump are always taken
+        if opcode == 'CALL':
+            MEM[REGS['SP']] = REGS['IP'] + 1  # push ret addr
+            MEM[REGS['SP'] - 1] = REGS['BP']  # save caller BP
+            REGS['BP'] = REGS['SP'] - 1
+            REGS['SP'] -= 2
         REGS['IP'] += offset - 1  # -1 because IP will be incrementd at end of the cpu cycle in any case
 
 def execute_special(instruction):
@@ -100,6 +116,15 @@ def execute_special(instruction):
     if opcode == 'HALT':
         global running
         running = False
+    if opcode == 'RET':
+        REGS['SP'] = REGS['BP'] + 1
+        ret_addr = MEM[REGS['BP'] + 1]
+        REGS['BP'] = MEM[REGS['BP']]
+        REGS['IP'] = ret_addr - 1  # because IP will be increment at end of cycle
+
+
+
+
 
 
 def execute(instruction):
@@ -121,9 +146,10 @@ def start():
     global running
     running = True
     while running:
-       cur_instruction = fetch()
-       execute(cur_instruction)
-       REGS['IP'] = REGS['IP'] + 1
+        cur_instruction = fetch()
+        print(to_str(cur_instruction))
+        execute(cur_instruction)
+        REGS['IP'] = REGS['IP'] + 1
 
 
 

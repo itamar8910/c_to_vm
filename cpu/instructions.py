@@ -33,6 +33,11 @@ DATA_OPCODES = {
     # arg2 can be either a register or an immediate
     # REG[arg1] = arg2
     'MOV': None,
+
+    # PUSH Rx: MEM[SP] = Rx, SP-=1
+    'PUSH': None,
+    # POP Rx: Rx = MEM[SP], SP+=1
+    'POP': None,
 }
 
 TEST_OPCODES = {
@@ -40,15 +45,17 @@ TEST_OPCODES = {
     'TSTG': lambda x, y: int(x > y),
     'TSTL': lambda x, y: int(x < y),
 }
-# instructions that affect IR
+# instructions that affect IR (excluding RET)
 FLOW_OPCODES = {
     'JUMP': lambda val : True,
     'TJMP': lambda val : val ,
     'FJMP': lambda val : not val,
+    'CALL': lambda val : True
 }
 
 SPECIAL_OPCODES = {
-    'HALT' : None
+    'HALT' : None,
+    'RET' : None
 }
 
 
@@ -60,6 +67,10 @@ def to_str(instruction):
         arg2 = instruction['arg2']
         return f'{opcode} {dst} {arg1} {arg2}' 
     if opcode in DATA_OPCODES:
+        if opcode == 'PUSH':
+            return f"{opcode} {instruction['src']}"
+        if opcode == 'POP':
+            return f"{opcode} {instruction['dst']}"
         src = instruction['src']
         dst = instruction['dst']
         return f'{opcode} {dst} {src}'
@@ -86,6 +97,10 @@ def from_str(s):
         arg2 = args[3] 
         return {'op': opcode, 'dst': dst, 'arg1': arg1, 'arg2': maybe_cast_arg(arg2)}
     if opcode in DATA_OPCODES:
+        if opcode == 'PUSH':
+            return {'op': opcode, 'src': maybe_cast_arg(args[1])}
+        if opcode == 'POP':
+            return {'op': opcode, 'dst': args[1]}
         dst = args[1]
         src = args[2] 
         return {'op': opcode, 'dst': dst, 'src': maybe_cast_arg(src)}

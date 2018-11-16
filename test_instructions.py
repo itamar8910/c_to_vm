@@ -1,5 +1,6 @@
 
 from cpu.cpu import reg_get, mem_get
+from cpu.instructions import to_str
 from operating_system.os import run_program 
 from operating_system.assembler import assemble
 
@@ -324,3 +325,142 @@ def test_fjump_neg():
     run_program(assemble(program))
     assert reg_get('R1') == 4
 
+def test_push_imm():
+    program = """
+        PUSH 1 
+        PUSH 2
+        POP R1
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 2
+
+def test_push():
+    program = """
+        MOV R2 3
+        PUSH 1 
+        PUSH R2
+        POP R1
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 3
+
+def test_pop():
+    program = """
+        MOV R1 4
+        PUSH 1 
+        PUSH R1
+        POP R2
+        POP R1 
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R2') == 4
+    assert reg_get('R1') == 1
+
+def test_call_ret_simple():
+    program = """
+        JUMP MAIN
+        FOO:
+        MOV R2 2
+        RET
+        MAIN:
+        MOV R1  1
+        CALL FOO
+        MOV R3 3
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 1
+    assert reg_get('R2') == 2
+    assert reg_get('R3') == 3
+
+def test_call_ret_with_args_and_retval():
+    program = """
+        JUMP MAIN
+        ADD:
+        ADD R1 BP 3
+        LOAD R1 R1
+        ADD R2 BP 4
+        LOAD R2 R2
+        ADD R1 R1 R2
+        ADD R2 BP 2
+        STR R2 R1
+        RET
+        MAIN:
+        PUSH 1
+        PUSH 2
+        PUSH 0
+        CALL ADD
+        POP R1
+        HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 3
+
+def test_call_multiple():
+    program = """
+    JUMP MAIN
+    MAIN:
+    CALL FOO1
+    MOV R1 5
+    HALT
+    FOO2:
+    CALL FOO3
+    RET
+    FOO1:
+    CALL FOO2
+    RET
+    FOO3:
+    RET
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 5
+
+def test_recursion_fiboncci():
+    program = """
+    JUMP MAIN
+    MAIN:
+    PUSH 6 
+    PUSH 0
+    CALL FIBBO
+    POP R1
+    HALT
+    FIBBO:
+    PUSH R1
+    PUSH R2
+    PUSH R5
+    ADD R5 BP 3
+    LOAD R5 R5
+    TSTG R5 1
+    TJMP RECURSE
+    ADD R1 BP 2
+    STR R1 R5
+    JUMP FIBO_RET
+    RECURSE:
+    ADD R5 R5 -1
+    PUSH R5 
+    PUSH 0
+    CALL FIBBO
+    POP R1
+    POP R5
+    ADD R5 R5 -1
+    PUSH R5
+    PUSH 0
+    CALL FIBBO
+    POP R2
+    POP R5
+    ADD R1 R1 R2
+    ADD R2 BP 2
+    STR R2 R1
+    FIBO_RET:
+    POP R5
+    POP R2
+    POP R1
+    RET
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 8
+
+# test_recursion_fiboncci()
