@@ -26,11 +26,9 @@ def assemble(program, ret_symbol_table = False):
         elif is_instruction(line):
             cur_rel_address += 1
 
-    # second pass, parse instructions & calc relative offsetst
+    # second pass, parse instructions & calc relative offsets
     cur_rel_address = 0
-    for line in program.split('\n'):
-        if is_instruction(line):
-            instruction = from_str(line)
+    for instruction in (from_str(line) for line in program.split('\n') if is_instruction(line)):
             if instruction['op'] in FLOW_OPCODES:  # calc relative address to label
                 label = instruction['offset']
                 assert label in symbol_table
