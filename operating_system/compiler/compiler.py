@@ -16,6 +16,7 @@ Using pycparser to generate the AST
 code = []
 
 TMP_LABEL_COUNT = 0
+SCOPE_TO_DATA = {}
 
 BIN_OP_MAP = {
     '+': 'ADD',
@@ -47,7 +48,7 @@ def get_binaryop_arith_opcode(op_symbol):
     assert op_symbol in BIN_OP_MAP
     return BIN_OP_MAP[op_symbol]
 
-def right_gen(node):  
+def right_gen(node, scope):  
     """
     invariant: in the end, evaluated value is stored in R1
     """
@@ -56,9 +57,9 @@ def right_gen(node):
         const_val = node.value
         code.append(f'MOV R1 {const_val}')
     elif ntype == 'BinaryOp':
-        right_gen(node.left)
+        right_gen(node.left, scope)
         code.append('PUSH R1')  # store result of left side on the stack
-        right_gen(node.right)
+        right_gen(node.right, scope)
         code.append('POP R2')
         # now R2 = left side, R1 = right side
         if node.op in BIN_OP_MAP:
@@ -98,7 +99,7 @@ def right_gen(node):
 
                 
     elif ntype == 'UnaryOp':
-        right_gen(node.expr)
+        right_gen(node.expr, scope)
         if node.op == '-':
             code.append('NEG R1')
         elif node.op == '!':
@@ -113,18 +114,100 @@ def right_gen(node):
             # code.append(f'{tmp_label1}:')
             # code.append('MOV R1 1')
             # code.append(f'{tmp_label2}:')
+    elif node_type(node) == 'Assignment':
+        left_gen(node.lvalue, scope)
+        code.append('PUSH R1')
+        right_gen(node.rvalue, scope)
+        code.append('POP R2')
+        code.append('STR R2 R1')
+    elif node_type(node) == 'ID':
+        var_name = node.name
+        load_addr_of(var_name, scope)
+        code.append('LOAD R1 R1')
 
 
+def load_addr_of(var_name, scope):
+    """
+    invariant: in the end, address of variable is stored in R1
+    """
+    assert var_name in SCOPE_TO_DATA[scope]['vars']
+    var_offset = SCOPE_TO_DATA[scope]['vars'][var_name]['offset']
+    var_offset_from_bp = -(1 + len(SCOPE_TO_DATA[scope]['regs_used']) + var_offset)
+    code.append(f'ADD R1 BP {var_offset_from_bp}')
 
-def code_gen(node):
-    if node_type(node) == 'Compound':
+def left_gen(node, scope):
+    """
+    invariant: in the end, evaluated address is stored in R1
+    """
+    if node_type(node) == 'ID':
+        var_name = node.name
+        load_addr_of(var_name, scope)
+
+
+def code_gen(node, scope):
+    if node_type(node) == 'FuncDef':
+        func_name = node.decl.name
+        update_vars(node.body, scope=func_name)
+        # save registers
+        for reg in SCOPE_TO_DATA[func_name]['regs_used']:
+            code.append(f'PUSH {reg}')
+
+        # make space on stack for local variables
+        for _, var_data in SCOPE_TO_DATA[func_name]['vars'].items():
+            for _ in range(var_data['size']):
+                code.append(f'PUSH 0')
+
+        code_gen(node.body, scope=func_name)
+
+        code.append(f'_{func_name}_END:')
+        # restore registers
+        for reg in reversed(SCOPE_TO_DATA[func_name]['regs_used']):
+            code.append(f'POP {reg}')
+        code.append('RET')
+
+    elif node_type(node) == 'Compound':
         for item in node.block_items:
-            code_gen(item)
+            code_gen(item, scope=scope)
     elif node_type(node) == 'Return':
-        right_gen(node.expr)
+        right_gen(node.expr, scope)
         code.append('ADD R2 BP 2')  # TODO: assumes return value spans only a single address
         code.append('STR R2 R1')
-        code.append('RET')
+        code.append(f'JUMP _{scope}_END')
+    elif node_type(node) == 'Decl':
+        if hasattr(node, 'init'):
+            load_addr_of(node.name, scope)
+            code.append('PUSH R1')
+            right_gen(node.init, scope)
+            code.append('POP R2')
+            code.append('STR R2 R1')
+    elif node_type(node) == 'Assignment':
+        right_gen(node, scope)
+
+def get_func_ret_type_and_size(func_node):
+    return 'int', 1
+
+def get_var_type_and_size(var_node):
+    return 'int', 1 # TODO: add support for bigger types (array, structs)
+
+def update_vars(node, scope):
+    func_ret_type, func_ret_size = get_func_ret_type_and_size(node)
+    SCOPE_TO_DATA[scope] = {
+        'vars': {},
+        'regs_used': ['R1','R2'],
+        'ret_type': func_ret_type,
+        'ret_size': func_ret_size
+    }
+    next_var_offset = 0
+    for item in node.block_items:
+        if node_type(item) == 'Decl':
+            var_name = item.name
+            var_type, var_size = get_var_type_and_size(item)
+            SCOPE_TO_DATA[scope]['vars'][var_name] = {
+                'type': var_type,
+                'size': var_size,
+                'offset': next_var_offset
+            }
+            next_var_offset += var_size
 
 
 def compile(text : str) -> List[str]:
@@ -137,11 +220,13 @@ def compile(text : str) -> List[str]:
     main_func = ast.ext[0]
     main_decl = main_func.decl
     assert main_decl.name == 'main' and main_decl.type.type.type.names[0] == 'int'
-    code_gen(main_func.body)
+    # update_vars(main_func.body, scope='main')
+    # code_gen(main_func.body, scope='main')
+    code_gen(main_func, scope='')
     return code
 
 if __name__ == "__main__":
-    with open('operating_system/compiler/test_data/bool_expressions/inputs/ge_false.c') as f:
+    with open('operating_system/compiler/test_data/variables/inputs/initialize.c') as f:
         text = f.read()
     code = '\n'.join(compile(text))
     print(code)
