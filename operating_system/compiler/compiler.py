@@ -1,8 +1,12 @@
 
+import sys
+from os import path
+sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 from typing import List
 
 from pycparser import c_parser, c_ast
 
+from cpu.instructions import ARITH_OPCODES
 """
 Compiles C programs to our assembly dialect
 
@@ -11,6 +15,11 @@ Using pycparser to generate the AST
 
 code = []
 
+BIN_OP_MAP = {
+    '+': 'ADD',
+}
+assert all(arith_opcode in ARITH_OPCODES for arith_opcode in BIN_OP_MAP.values())
+    
 def get_ast(text):
     parser = c_parser.CParser()
     return parser.parse(text, filename='<none>')
@@ -18,13 +27,26 @@ def get_ast(text):
 def node_type(node):
     return node.__class__.__name__
 
+def get_binaryop_arith_opcode(op_symbol):
+    assert op_symbol in BIN_OP_MAP
+    return BIN_OP_MAP[op_symbol]
+
 def right_gen(node):  
     """
-    invariant: at the end, evaluated value is stored in R1
+    invariant: in the end, evaluated value is stored in R1
     """
-    if node_type(node) == 'Constant':
+    ntype = node_type(node)
+    if  ntype == 'Constant':
         const_val = node.value
         code.append(f'MOV R1 {const_val}')
+    if ntype == 'BinaryOp':
+        right_gen(node.left)
+        code.append('PUSH R1')  # store result of left side on the stack
+        right_gen(node.right)
+        code.append('POP R2')
+        # now R2 = left side, R1 = right side
+        airth_opcode = get_binaryop_arith_opcode(node.op)
+        code.append(f'{airth_opcode} R1 R2 R1')
 
 def code_gen(node):
     if node_type(node) == 'Compound':
@@ -51,6 +73,6 @@ def compile(text : str) -> List[str]:
     return code
 
 if __name__ == "__main__":
-    with open('operating_system/compiler/data/simple.c') as f:
+    with open('operating_system/compiler/test_data/arith_expressions/inputs/1plus1.c') as f:
         text = f.read()
-    print(compile(text))
+    print('\n'.join(compile(text)))
