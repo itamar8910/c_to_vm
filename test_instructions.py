@@ -463,4 +463,14 @@ def test_recursion_fiboncci():
     run_program(assemble(program))
     assert reg_get('R1') == 8
 
-# test_recursion_fiboncci()
+def test_program_ret_val():
+    program = """
+    MAIN:
+    ADD R1 BP 2
+    STR R1 3
+    RET
+    """
+    ret_val = run_program(assemble(program))
+    assert ret_val == 3
+
+test_program_ret_val()

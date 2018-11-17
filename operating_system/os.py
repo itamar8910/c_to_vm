@@ -48,7 +48,7 @@ Returning from the function:
                 jump to returna addr
 """
 
-PROGRAM_INIT_ADDR = 1000  # TODO: change this to allow multiple programs
+PROGRAM_INIT_ADDR = 1000 
 INIT_SP_ADDR = 9999
 
 def load_program(instructions, init_addr):
@@ -72,13 +72,14 @@ def setup_stackframe():
 
 
 def run_program(instructions):
+    reset_cpu_state()
     load_program(instructions, PROGRAM_INIT_ADDR)
     cpu.reg_set('IP', PROGRAM_INIT_ADDR)
     # set initial stack frame
     setup_stackframe()
     cpu.start()  # run until HALT instruction
     # return the return value of the program
-    return cpu.mem_get(cpu.reg_get('BP') + 1)
+    return cpu.mem_get(cpu.reg_get('BP') + 2)
     
 
 def main():

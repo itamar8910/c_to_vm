@@ -147,7 +147,6 @@ def start():
     running = True
     while running:
         cur_instruction = fetch()
-        print(to_str(cur_instruction))
         execute(cur_instruction)
         REGS['IP'] = REGS['IP'] + 1
 
