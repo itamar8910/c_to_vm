@@ -61,22 +61,58 @@ def right_gen(node):
         right_gen(node.right)
         code.append('POP R2')
         # now R2 = left side, R1 = right side
-        airth_opcode = get_binaryop_arith_opcode(node.op)
-        code.append(f'{airth_opcode} R1 R2 R1')
+        if node.op in BIN_OP_MAP:
+            airth_opcode = get_binaryop_arith_opcode(node.op)
+            code.append(f'{airth_opcode} R1 R2 R1')
+        else:
+            if node.op == '==':
+                code.append('TSTE R1 R2')
+                code.append('MOV R1 ZR')
+            if node.op == '!=':
+                code.append('TSTN R1 R2')
+                code.append('MOV R1 ZR')
+            if node.op == '&&':
+                code.append('TSTN R1 0')
+                code.append('MOV R1 ZR')
+                code.append('TSTN R2 0')
+                code.append('AND R1 R1 ZR')
+            if node.op == '||':
+                code.append('TSTN R1 0')
+                code.append('MOV R1 ZR')
+                code.append('TSTN R2 0')
+                code.append('OR R1 R1 ZR')
+            if node.op == '<':
+                code.append('TSTL R2 R1')
+                code.append('MOV R1 ZR')
+            if node.op == '<=':
+                code.append('TSTG R2 R1')
+                code.append('TSTN ZR 1')
+                code.append('MOV R1 ZR')
+            if node.op == '>':
+                code.append('TSTG R2 R1')
+                code.append('MOV R1 ZR')
+            if node.op == '>=':
+                code.append('TSTL R2 R1')
+                code.append('TSTN ZR 1')
+                code.append('MOV R1 ZR')
+
+                
     elif ntype == 'UnaryOp':
         right_gen(node.expr)
         if node.op == '-':
             code.append('NEG R1')
         elif node.op == '!':
-            tmp_label1 = gen_tmp_label()
-            tmp_label2 = gen_tmp_label()
             code.append('TSTE R1 0')
-            code.append(f'TJMP {tmp_label1}')
-            code.append('MOV R1 0')  # R1 != 0
-            code.append(f'JUMP {tmp_label2}')
-            code.append(f'{tmp_label1}:')
-            code.append('MOV R1 1')
-            code.append(f'{tmp_label2}:')
+            code.append('MOV R1 ZR')
+            # tmp_label1 = gen_tmp_label()
+            # tmp_label2 = gen_tmp_label()
+            # code.append('TSTE R1 0')
+            # code.append(f'TJMP {tmp_label1}')
+            # code.append('MOV R1 0')  # R1 != 0
+            # code.append(f'JUMP {tmp_label2}')
+            # code.append(f'{tmp_label1}:')
+            # code.append('MOV R1 1')
+            # code.append(f'{tmp_label2}:')
 
 
 
@@ -105,6 +141,10 @@ def compile(text : str) -> List[str]:
     return code
 
 if __name__ == "__main__":
-    with open('operating_system/compiler/test_data/arith_expressions/inputs/longexpression.c') as f:
+    with open('operating_system/compiler/test_data/bool_expressions/inputs/ge_false.c') as f:
         text = f.read()
-    print('\n'.join(compile(text)))
+    code = '\n'.join(compile(text))
+    print(code)
+    from operating_system.os import run_program
+    from operating_system.assembler import assemble
+    run_program(assemble(code))

@@ -46,6 +46,7 @@ DATA_OPCODES = {
 
 TEST_OPCODES = {
     'TSTE': lambda x, y : int(x == y),
+    'TSTN': lambda x, y : int(x != y),
     'TSTG': lambda x, y: int(x > y),
     'TSTL': lambda x, y: int(x < y),
 }
@@ -113,6 +114,7 @@ def from_str(s):
         src = args[2] 
         return {'op': opcode, 'dst': dst, 'src': maybe_cast_arg(src)}
     if opcode in TEST_OPCODES:
+        assert len(args) == 3
         arg1 = args[1] 
         arg2 = args[2] 
         return {'op': opcode, 'arg1': arg1, 'arg2': maybe_cast_arg(arg2)}
