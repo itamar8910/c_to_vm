@@ -1,5 +1,5 @@
 
-from cpu.instructions import ARITH_OPCODES, DATA_OPCODES, TEST_OPCODES, FLOW_OPCODES, SPECIAL_OPCODES
+from cpu.instructions import BIN_ARITH_OPCODES, DATA_OPCODES, TEST_OPCODES, FLOW_OPCODES, SPECIAL_OPCODES, UNARY_ARITH_OPCODES
 from cpu.instructions import to_str
 
 running = True
@@ -52,7 +52,15 @@ def reg_get(reg):
 def fetch():
     return MEM[REGS['IP']] 
 
-def execute_arith(instruction):
+def execute_unary_arith(instruction):
+    opcode = instruction['op']
+    arg = instruction['arg']
+    assert arg in REGS
+    arg_val = reg_get(arg)
+    res_val = UNARY_ARITH_OPCODES[opcode](arg_val)
+    reg_set(arg, res_val)
+
+def execute_bin_arith(instruction):
     opcode = instruction['op']
     dst = instruction['dst']
     arg1 = instruction['arg1']
@@ -62,7 +70,7 @@ def execute_arith(instruction):
     arg1_val = reg_get(arg1)
     # arg2 is either a register or an immediate
     arg2_val = reg_get(arg2) if arg2 in REGS else arg2
-    res_val = ARITH_OPCODES[opcode](arg1_val, arg2_val)
+    res_val = BIN_ARITH_OPCODES[opcode](arg1_val, arg2_val)
     reg_set(dst, res_val)
 
 def execute_data(instruction):
@@ -123,14 +131,12 @@ def execute_special(instruction):
         REGS['IP'] = ret_addr - 1  # because IP will be increment at end of cycle
 
 
-
-
-
-
 def execute(instruction):
     opcode = instruction['op']
-    if opcode in ARITH_OPCODES:
-        execute_arith(instruction)
+    if opcode in UNARY_ARITH_OPCODES:
+        execute_unary_arith(instruction)
+    elif opcode in BIN_ARITH_OPCODES:
+        execute_bin_arith(instruction)
     elif opcode in DATA_OPCODES:
         execute_data(instruction)
     elif opcode in TEST_OPCODES:

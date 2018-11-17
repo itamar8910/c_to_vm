@@ -4,7 +4,7 @@ arg1 must be a register
 arg2 must be a register
 arg3 can be either a register or an immediate value
 """
-ARITH_OPCODES = {
+BIN_ARITH_OPCODES = {
     'ADD' : lambda x, y: x + y,
     'SUB': lambda x, y: x - y,
     'MUL': lambda x, y: x * y,
@@ -14,6 +14,10 @@ ARITH_OPCODES = {
     'OR': lambda x, y : x | y,
     'SHL': lambda x, y: x << y,
     'SHR': lambda x, y: x >> y
+    }
+
+UNARY_ARITH_OPCODES = {
+    'NEG': lambda x: -x,
     }
 
 DATA_OPCODES = {
@@ -61,7 +65,9 @@ SPECIAL_OPCODES = {
 
 def to_str(instruction):
     opcode = instruction['op']
-    if opcode in ARITH_OPCODES:
+    if opcode in UNARY_ARITH_OPCODES:
+        return f"{opcode} {instruction['arg']}"
+    if opcode in BIN_ARITH_OPCODES:
         dst = instruction['dst']
         arg1 = instruction['arg1']
         arg2 = instruction['arg2']
@@ -91,7 +97,9 @@ def from_str(s):
 
     args = s.split()
     opcode = args[0]
-    if opcode in ARITH_OPCODES:
+    if opcode in UNARY_ARITH_OPCODES:
+        return {'op': opcode, 'arg': args[1]}
+    if opcode in BIN_ARITH_OPCODES:
         dst = args[1]
         arg1 = args[2] 
         arg2 = args[3] 

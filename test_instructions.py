@@ -95,6 +95,15 @@ def test_shr():
     run_program(assemble(program))
     assert reg_get('R1') == 1
 
+def test_neg():
+    program = """
+    MOV R1 4
+    NEG R1
+    HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == -4
+    
 def test_add_imm():
     program = """
     MOV R1 2
