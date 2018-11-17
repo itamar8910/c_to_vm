@@ -103,7 +103,7 @@ def test_neg():
     """
     run_program(assemble(program))
     assert reg_get('R1') == -4
-    
+
 def test_add_imm():
     program = """
     MOV R1 2
