@@ -120,6 +120,16 @@ def right_gen(node, scope):
         code.append('PUSH R1')
         right_gen(node.rvalue, scope)
         code.append('POP R2')
+        if len(node.op) == 2: # e.g +=, *=
+            op = node.op
+            assert op[1] == '='
+            opchar = op[0]
+            assert opchar in BIN_OP_MAP
+            # save R2 - NOTE: we could use R3 instead
+            code.append('PUSH R2')
+            code.append('LOAD R2 R2')  # get MEM[R2]
+            code.append(f'{BIN_OP_MAP[opchar]} R1 R2 R1')
+            code.append('POP R2')  # restore R2 
         code.append('STR R2 R1')
     elif node_type(node) == 'ID':
         var_name = node.name
@@ -227,7 +237,7 @@ def compile(text : str) -> List[str]:
     return code
 
 if __name__ == "__main__":
-    with open('operating_system/compiler/test_data/variables/inputs/initialize.c') as f:
+    with open('operating_system/compiler/test_data/variables/inputs/op_assign.c') as f:
         text = f.read()
     code = '\n'.join(compile(text))
     print(code)
