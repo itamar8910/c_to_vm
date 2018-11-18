@@ -100,10 +100,11 @@ def right_gen(node, scope):
 
                 
     elif ntype == 'UnaryOp':
-        right_gen(node.expr, scope)
         if node.op == '-':
+            right_gen(node.expr, scope)
             code.append('NEG R1')
         elif node.op == '!':
+            right_gen(node.expr, scope)
             code.append('TSTE R1 0')
             code.append('MOV R1 ZR')
             # tmp_label1 = gen_tmp_label()
@@ -115,6 +116,25 @@ def right_gen(node, scope):
             # code.append(f'{tmp_label1}:')
             # code.append('MOV R1 1')
             # code.append(f'{tmp_label2}:')
+        elif '++' in node.op or '--' in node.op:
+            # TODO: when we deal with pointers
+            #  we need to add sizeof(*type), not 1
+            arith_op = 'ADD' if '++' in node.op else 'SUB'
+            if not node.op.startswith('p'):  # e.g ++x
+                left_gen(node.expr, scope)
+                code.append('LOAD R2 R1')
+                code.append(f'{arith_op} R2 R2 1')
+                code.append('STR R1 R2')
+                code.append('MOV R1 R2')
+            else:  # e.g x++
+                left_gen(node.expr, scope)
+                code.append('LOAD R2 R1')
+                code.append(f'{arith_op} R2 R2 1')
+                code.append('STR R1 R2')
+                code.append(f'{arith_op} R2 R2 -1')
+                code.append('MOV R1 R2')
+
+
     elif node_type(node) == 'Assignment':
         left_gen(node.lvalue, scope)
         code.append('PUSH R1')
