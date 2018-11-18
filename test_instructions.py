@@ -95,6 +95,16 @@ def test_shr():
     run_program(assemble(program))
     assert reg_get('R1') == 1
 
+def test_xor():
+    program = """
+    MOV R1 6
+    MOV R2 2
+    XOR R1 R1 R2
+    HALT
+    """
+    run_program(assemble(program))
+    assert reg_get('R1') == 4
+
 def test_neg():
     program = """
     MOV R1 4

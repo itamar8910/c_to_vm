@@ -13,7 +13,8 @@ BIN_ARITH_OPCODES = {
     'AND': lambda x, y: x & y,
     'OR': lambda x, y : x | y,
     'SHL': lambda x, y: x << y,
-    'SHR': lambda x, y: x >> y
+    'SHR': lambda x, y: x >> y,
+    'XOR': lambda x, y: x ^ y,
     }
 
 UNARY_ARITH_OPCODES = {

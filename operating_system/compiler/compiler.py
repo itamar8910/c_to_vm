@@ -27,7 +27,8 @@ BIN_OP_MAP = {
     '&': 'AND',
     '|': 'OR',
     '<<': 'SHL',
-    '>>': 'SHR'
+    '>>': 'SHR',
+    '^': 'XOR',
 }
 assert all(arith_opcode in BIN_ARITH_OPCODES for arith_opcode in BIN_OP_MAP.values())
     
