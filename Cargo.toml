@@ -1,0 +1,6 @@
+[package]
+name = "simple_vm"
+version = "0.1.0"
+authors = ["Itamar Shenhar <itamar8910@gmail.com>"]
+
+[dependencies]
