@@ -62,7 +62,7 @@ impl FromStr for BinArithOp{
     }
 }
 impl BinArithOp{
-    fn eval(&self, x: i32, y: i32) -> i32{
+    pub fn eval(&self, x: i32, y: i32) -> i32{
         match &self{
             BinArithOp::ADD => x + y,
             BinArithOp::SUB => x - y,
@@ -92,7 +92,7 @@ impl FromStr for UnaryArithOp{
 }
 
 impl UnaryArithOp{
-    fn eval(&self, x: i32) -> i32{
+    pub fn eval(&self, x: i32) -> i32{
         match &self{
             UnaryArithOp::NEG => -x,
         }
@@ -155,7 +155,7 @@ impl FromStr for TestOp{
 }
 
 impl TestOp{
-    fn test(&self, arg1 : i32, arg2: i32) -> bool{
+    pub fn test(&self, arg1 : i32, arg2: i32) -> bool{
         match &self{
             TestOp::TSTE => arg1 == arg2,
             TestOp::TSTN => arg1 != arg2,
@@ -186,7 +186,7 @@ impl FromStr for FlowOp{
 }
 
 impl FlowOp{
-    fn should_take(&self, arg : i32) -> bool{
+    pub fn should_take(&self, arg : i32) -> bool{
         match &self{
             FlowOp::JUMP => true,
             FlowOp::TJMP => arg != 0,
