@@ -1,6 +1,6 @@
 
-#[derive(Debug, PartialEq)]
-enum Register{
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub enum Register{
     R1,
     R2,
     R3,
@@ -29,8 +29,8 @@ impl FromStr for Register{
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum BinArithOp{
+#[derive(Debug, PartialEq, Clone)]
+pub enum BinArithOp{
     ADD,
     SUB,
     MUL,
@@ -78,7 +78,7 @@ impl BinArithOp{
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum UnaryArithOp{
     NEG,
 }
@@ -99,8 +99,8 @@ impl UnaryArithOp{
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum DataOp{
+#[derive(Debug, PartialEq, Clone)]
+pub enum DataOp{
     LOAD,
     STR,
     MOV,
@@ -118,8 +118,8 @@ impl FromStr for DataOp{
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum StackOp{
+#[derive(Debug, PartialEq, Clone)]
+pub enum StackOp{
     PUSH,
     POP,
 }
@@ -134,8 +134,8 @@ impl FromStr for StackOp{
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum TestOp{
+#[derive(Debug, PartialEq, Clone)]
+pub enum TestOp{
     TSTE,
     TSTN,
     TSTG,
@@ -165,8 +165,8 @@ impl TestOp{
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum FlowOp{
+#[derive(Debug, PartialEq, Clone)]
+pub enum FlowOp{
     JUMP,
     TJMP,
     FJMP,
@@ -197,8 +197,8 @@ impl FlowOp{
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum OtherOp{
+#[derive(Debug, PartialEq, Clone)]
+pub enum OtherOp{
     HALT,
     RET,
 }
@@ -213,8 +213,8 @@ impl FromStr for OtherOp{
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum RegOrImm{
+#[derive(Debug, PartialEq, Clone)]
+pub enum RegOrImm{
     Reg(Register),
     Val(i32),
 }
@@ -256,7 +256,7 @@ impl RegOrImm{
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Instruction{
     UnaryArith {op: UnaryArithOp, arg: Register},
     BinArith {op : BinArithOp, dst: Register, arg1: Register, arg2: RegOrImm},
