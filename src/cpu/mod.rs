@@ -194,7 +194,10 @@ impl Cpu{
             },
         }
     }
-
+    /*
+    TODO: 
+    -   test with short programs from py impl.
+    */
     fn start(&mut self){
         loop{
             let instr = self.fetch();
