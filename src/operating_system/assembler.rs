@@ -23,9 +23,9 @@ fn maybe_parse_instruction(line: &str, symbol_table: &HashMap<String, u32>, cur_
         // if line is flow instruction
         if let Result::Ok(flow_op) = FlowOp::from_str(args[0]){
             // replace label string with numeric offset
-            let label = get_label_from_line(line).unwrap();
+            let label = String::from(args[1]);
             assert!(symbol_table.contains_key(&label));
-            let offset = symbol_table.get(&label).unwrap() - cur_rel_address;
+            let offset = (*symbol_table.get(&label).unwrap() as i32) - (cur_rel_address as i32);
             return Some(Instruction::from_str(&format!("{} {}", args[0], offset )).unwrap());
 
         }
@@ -59,6 +59,8 @@ fn assemble(program: &str) -> (Vec<Instruction>, HashMap<String, u32>){
         if let Some(instr) = maybe_parse_instruction(line, &symbol_table, cur_rel_address){
             instructions.push(instr);
             cur_rel_address += 1;
+        }else if !is_label(line) && line.trim().len() != 0{
+            panic!("Invalid instruction: {}", line);
         }
     } 
 
@@ -111,6 +113,33 @@ mod tests{
             assert!(*op == OtherOp::HALT);
         } else{
             panic!();
+        }
+    }
+    #[test]
+    fn test_symbol_table(){
+        let program = "
+        L1:
+        MUL R1 R2 5
+        JUMP L2
+        L3:
+        ADD R1 R1 1
+        HALT
+        L2:
+        SUB R2 R2 R1
+        TJMP L3
+        ";
+        let (isntructions, symbol_table) = assemble(program);
+        // println!("{:?}", symbol_table);
+        assert_eq!(*symbol_table.get("L1").unwrap(), 0);
+        assert_eq!(*symbol_table.get("L3").unwrap(), 2);
+        assert_eq!(*symbol_table.get("L2").unwrap(), 4);
+        if let Instruction::Flow {ref op, ref offset} = isntructions[1]{
+            assert_eq!(*op, FlowOp::JUMP);
+            assert_eq!(*offset, 3);
+        }
+        if let Instruction::Flow {ref op, ref offset} = isntructions[5]{
+            assert_eq!(*op, FlowOp::TJMP);
+            assert_eq!(*offset, -3);
         }
     }
 }

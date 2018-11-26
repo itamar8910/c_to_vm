@@ -282,7 +282,6 @@ impl Instruction{
 
     pub fn from_str(instruction_str : &str) -> Result<Instruction, ()>{
         let args : Vec<&str> = instruction_str.split_whitespace().collect();
-        println!("{:?}", args);
         let op = args[0];
         if let Result::Ok(op) = UnaryArithOp::from_str(&op){
             assert!(args.len() == 2);
