@@ -53,7 +53,7 @@ impl FromStr for BinArithOp{
             "DIV" => Ok(BinArithOp::DIV),
             "MOD" => Ok(BinArithOp::MOD),
             "AND" => Ok(BinArithOp::AND),
-            "OR," => Ok(BinArithOp::OR),
+            "OR" => Ok(BinArithOp::OR),
             "SHL" => Ok(BinArithOp::SHL),
             "SHR" => Ok(BinArithOp::SHR),
             "XOR" => Ok(BinArithOp::XOR),

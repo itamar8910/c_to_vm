@@ -3,6 +3,7 @@ pub mod assembler;
 use ::cpu::instructions::*;
 use ::cpu::Cpu;
 use ::cpu::MemEntry;
+use self::assembler::assemble;
 
 
 /*
@@ -54,7 +55,7 @@ const PROGRAM_INIT_ADDRESS :u32 = 1000;
 const INIT_SP_ADDRESS :u32 = 9999;
 
 pub struct OS{
-    cpu: Cpu,
+    pub cpu: Cpu,
 }
 
 impl OS{
@@ -102,4 +103,11 @@ impl OS{
         self.cpu.mem.get_num((bp + 2) as u32)
 
     }
+
+
+    pub fn assemble_and_run(&mut self, program: &str) -> i32{
+        let (instructions, _) = assemble(program);
+        self.run_program(instructions)
+    }
+
 }

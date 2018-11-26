@@ -51,7 +51,7 @@ impl Memory{
         Memory{data:HashMap::new()}
     }
     pub fn get(&self, address: u32) -> &MemEntry{
-        self.data.get(&address).expect("Invalid memory access")
+        self.data.get(&address).expect(format!("Invalid memory access: {}", address).as_str())
     }
     pub fn set(&mut self, address: u32, val: MemEntry){
         self.data.insert(address, val);
@@ -190,13 +190,14 @@ impl Cpu{
             },
             Instruction::Other {op} => {
                 self.execute_other(op);
-                return if let OtherOp::HALT = op {true} else {true}
+                return if let OtherOp::HALT = op {false} else {true}
             },
         }
     }
 
     pub fn start(&mut self){
         loop{
+            println!("fetching instruction from: {}", self.regs.get(&Register::IR));
             let instr = self.fetch();
             let keep_running = self.execute(&instr);
             let ir = self.regs.get(&Register::IR);
