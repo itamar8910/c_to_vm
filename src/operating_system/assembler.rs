@@ -37,7 +37,7 @@ fn maybe_parse_instruction(line: &str, symbol_table: &HashMap<String, u32>, cur_
     None
 }
 
-fn assemble(program: &str) -> (Vec<Instruction>, HashMap<String, u32>){
+pub fn assemble(program: &str) -> (Vec<Instruction>, HashMap<String, u32>){
     let mut symbol_table = HashMap::new();
     let mut instructions = Vec::new();
     let mut cur_rel_address = 0; 

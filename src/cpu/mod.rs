@@ -3,7 +3,7 @@ pub mod instructions;
 use std::collections::HashMap;
 use self::instructions::*;
 
-struct Registers{
+pub struct Registers{
     values: HashMap<Register, i32>,
 }
 
@@ -20,13 +20,13 @@ impl Registers{
         instance.values.insert(Register::ZR, 0);
         instance
     } 
-    fn get(&self, reg : &Register) -> i32{
+    pub fn get(&self, reg : &Register) -> i32{
         *self.values.get(&reg).unwrap()
     }
-    fn set(&mut self, reg: &Register, val: i32){
+    pub fn set(&mut self, reg: &Register, val: i32){
         self.values.insert(reg.clone(), val);
     }
-    fn get_reg_or_imm(&self, arg : &RegOrImm) -> i32{
+    pub fn get_reg_or_imm(&self, arg : &RegOrImm) -> i32{
         match arg{
             RegOrImm::Reg(reg) => {
                 return self.get(reg);
@@ -38,44 +38,44 @@ impl Registers{
     }
 }
 
-enum MemEntry{
+pub enum MemEntry{
     num(i32),
-    instruciton(Instruction),
+    instruction(Instruction),
 }
 
-struct Memory{
+pub struct Memory{
     data: HashMap<u32, MemEntry>
 }
 impl Memory{
     fn new() -> Memory{
         Memory{data:HashMap::new()}
     }
-    fn get(&self, address: u32) -> &MemEntry{
+    pub fn get(&self, address: u32) -> &MemEntry{
         self.data.get(&address).expect("Invalid memory access")
     }
-    fn set(&mut self, address: u32, val: MemEntry){
+    pub fn set(&mut self, address: u32, val: MemEntry){
         self.data.insert(address, val);
     }
-    fn get_num(&self, address: u32) -> i32{
+    pub fn get_num(&self, address: u32) -> i32{
         match self.get(address){
             MemEntry::num(x) => *x,
-            MemEntry::instruciton(_) => panic!("not numeric value")
+            MemEntry::instruction(_) => panic!("not numeric value")
         }
     }
 }
 
-struct Cpu{
-    mem: Memory,
-    regs: Registers,
+pub struct Cpu{
+    pub mem: Memory,
+    pub regs: Registers,
 }
 
 impl Cpu{
-    fn new() -> Cpu{
+    pub fn new() -> Cpu{
         Cpu{mem: Memory::new(), regs: Registers::new()}
     }
 
     fn fetch(&self) -> Instruction{
-        if let MemEntry::instruciton(instr) = self.mem.get(self.regs.get(&Register::IR) as u32){
+        if let MemEntry::instruction(instr) = self.mem.get(self.regs.get(&Register::IR) as u32){
             return instr.clone()
         }
         panic!("cannot execute data!");
@@ -194,14 +194,13 @@ impl Cpu{
             },
         }
     }
-    /*
-    TODO: 
-    -   test with short programs from py impl.
-    */
-    fn start(&mut self){
+
+    pub fn start(&mut self){
         loop{
             let instr = self.fetch();
             let keep_running = self.execute(&instr);
+            let ir = self.regs.get(&Register::IR);
+            self.regs.set(&Register::IR, ir + 1);
             if !keep_running{
                 break;
             }
