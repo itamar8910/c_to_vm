@@ -1,4 +1,6 @@
 
+use std::str::FromStr;
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Register{
     R1,
@@ -11,7 +13,6 @@ pub enum Register{
     ZR,
 }
 
-use std::str::FromStr;
 impl FromStr for Register{
     type Err = ();
     fn from_str(s: &str) -> Result<Register, ()>{
@@ -283,6 +284,7 @@ impl Instruction{
     pub fn from_str(instruction_str : &str) -> Result<Instruction, ()>{
         let args : Vec<&str> = instruction_str.split_whitespace().collect();
         let op = args[0];
+
         if let Result::Ok(op) = UnaryArithOp::from_str(&op){
             assert!(args.len() == 2);
             return Ok(Instruction::UnaryArith {

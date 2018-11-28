@@ -1,4 +1,5 @@
 pub mod assembler;
+pub mod compiler;
 
 use ::cpu::instructions::*;
 use ::cpu::Cpu;
