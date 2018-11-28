@@ -29,7 +29,26 @@ impl FromStr for Register{
         }
     }
 }
+impl std::fmt::Display for Register {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.to_str())
+    }
+}
 
+impl Register{
+    pub fn to_str(&self) -> String{
+        format!("{}", match self{
+            R1 => "R1",
+            R2 => "R2",
+            R3 => "R3",
+            R4 => "R4",
+            SP => "SP",
+            BP => "BP",
+            IR => "IR",
+            ZR => "ZR",
+        })
+    }
+}
 #[derive(Debug, PartialEq, Clone)]
 pub enum BinArithOp{
     ADD,
