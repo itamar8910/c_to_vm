@@ -1,12 +1,9 @@
 extern crate serde_json;
 mod AST;
 
-use std::process::Command;
 use std::collections::HashMap;
 use ::cpu::instructions::{Register};
 
-const PATH_TO_PY_EXEC : &str = "src/operating_system/compiler/parser/venv/bin/python";
-const PATH_TO_PARSER : &str = "src/operating_system/compiler/parser/to_ast_json.py";
 
 // typedef ast Node = JSON value
 use self::serde_json::Value as Node;
@@ -16,16 +13,17 @@ fn node_as_string(node: &Node) -> String{
 }
 
 pub fn get_ast_json(path_to_c_source: &str) -> Node{
-    //TODO: refactor to using our strong-typed AST module
-    let output = Command::new(PATH_TO_PY_EXEC)
-                        .arg(PATH_TO_PARSER)
-                        .arg(path_to_c_source)
-                        .output()
-                        .expect("Failed to execute c parser");
+    // //TODO: refactor to using our strong-typed AST module
+    // let output = Command::new(PATH_TO_PY_EXEC)
+    //                     .arg(PATH_TO_PARSER)
+    //                     .arg(path_to_c_source)
+    //                     .output()
+    //                     .expect("Failed to execute c parser");
 
-    let json_str = String::from_utf8(output.stdout).expect("Error decoding ast json bytes");
+    // let json_str = String::from_utf8(output.stdout).expect("Error decoding ast json bytes");
 
-    serde_json::from_str(&json_str).expect("parser output is not JSON serializable")
+    // serde_json::from_str(&json_str).expect("parser output is not JSON serializable")
+    serde_json::from_str(&"{}").unwrap()  // TODO: switch to AST module
 }
 
 struct VariableData{
@@ -110,8 +108,8 @@ impl Compiler{
 
             },
             "Compound" => {
-                // for item in node["block_items"].as_array().iter(){
-                //     self.code_gen(*item, &scope, code);
+                // for item in node["block_items"].as_array().unwrap().iter(){
+                //     self.code_gen(item, &scope, code);
                 // }
             }
             _ => {
