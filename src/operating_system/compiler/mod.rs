@@ -192,9 +192,10 @@ impl Compiler{
     }   
 
 
-    pub fn compile(path_to_c_source : &str) -> Vec<String>{
+    pub fn compile(path_to_c_source : &str) -> String{
         let mut instance = Compiler::new();
-        instance._compile(path_to_c_source)
+        let instructions = instance._compile(path_to_c_source);
+        instructions.join("\n")
     }
 
 }

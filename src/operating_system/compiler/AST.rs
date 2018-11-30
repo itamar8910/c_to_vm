@@ -146,7 +146,7 @@ impl Constant{
     fn from(node: &JsonNode) -> Result<Constant, AstError>{
         Ok(Constant{
             _type: node["type"].as_str().unwrap().to_string(),
-            val: "1".to_string(),
+            val: node["value"].as_str().unwrap().to_string(),
         })
     }
 }
@@ -170,7 +170,7 @@ mod tests{
     use super::*;
     #[test]
     fn simple_main(){
-        let ast_root = get_ast("src/operating_system/compiler/test_data/const_expressions/inputs/1.c");
+        let ast_root = get_ast("tests/compiler_test_data/const_expressions/inputs/1.c");
         assert_eq!(ast_root.externals.len(), 1);
         match &ast_root.externals[0]{
             External::FuncDef(func_def) => {
@@ -181,7 +181,7 @@ mod tests{
                         match &ret.expr{
                             Expression::Constant(c) =>{
                                 assert_eq!(c._type, "int");
-                                assert_eq!(c.val, "1");
+                                assert_eq!(c.val, "2");
                             },
                             _ => panic!(),
                         }
