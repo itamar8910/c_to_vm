@@ -9,9 +9,19 @@ const PATH_TO_PARSER : &str = "src/operating_system/compiler/parser/to_ast_json.
 
 type AstError = ();
 
+pub enum AstNode<'a>{
+    RootAstNode(&'a RootAstNode),
+    External(&'a External),
+    FuncDef(&'a FuncDef),
+    FuncDecl(&'a FuncDecl),
+    Compound(&'a Compound),
+    Statement(&'a Statement),
+    Expression(&'a Expression),
+    Constant(&'a Constant),
+}
 
 pub struct RootAstNode{
-    externals: Vec<External>,
+    pub externals: Vec<External>,
 }
 
 impl RootAstNode{
@@ -24,7 +34,7 @@ impl RootAstNode{
     }
 }
 
-enum External{
+pub enum External{
     FuncDef(FuncDef),
 }
 
@@ -37,9 +47,9 @@ impl External{
     }
 }
 
-struct FuncDef{
-    body: Compound,
-    decl: FuncDecl,
+pub struct FuncDef{
+    pub body: Compound,
+    pub decl: FuncDecl,
 }
 impl FuncDef{
     fn from(node: &JsonNode) -> Result<FuncDef, AstError>{
@@ -50,10 +60,10 @@ impl FuncDef{
     }
 }
 
-struct FuncDecl{
-    name: String,
-    argsType: Vec<String>,
-    retType: String,
+pub struct FuncDecl{
+    pub name: String,
+    pub argsType: Vec<String>,
+    pub retType: String,
 }
 impl FuncDecl{
     fn from(node: &JsonNode) -> Result<FuncDecl, AstError>{
@@ -65,8 +75,8 @@ impl FuncDecl{
     }
 }
 
-struct Compound{
-    items: Vec<Statement>,
+pub struct Compound{
+    pub items: Vec<Statement>,
 }
 
 impl Compound{
@@ -82,8 +92,9 @@ impl Compound{
     }
 }
 
-enum Statement{
+pub enum Statement{
     Return(Return),
+    Decl(Decl),
 }
 
 impl Statement{
@@ -95,8 +106,13 @@ impl Statement{
     }
 }
 
-struct Return{
-    expr: Expression,
+pub struct Return{
+    pub expr: Expression,
+}
+pub struct Decl{
+    pub name: String,
+    pub _type: String,
+
 }
 
 impl Return{
@@ -107,7 +123,7 @@ impl Return{
     }
 }
 
-enum Expression{
+pub enum Expression{
     Constant(Constant),
 }
 
@@ -121,9 +137,9 @@ impl Expression{
     }
 }
 
-struct Constant{
-    _type: String,
-    val: String,
+pub struct Constant{
+    pub _type: String,
+    pub val: String,
 }
 
 impl Constant{

@@ -38,14 +38,14 @@ impl std::fmt::Display for Register {
 impl Register{
     pub fn to_str(&self) -> String{
         format!("{}", match self{
-            R1 => "R1",
-            R2 => "R2",
-            R3 => "R3",
-            R4 => "R4",
-            SP => "SP",
-            BP => "BP",
-            IR => "IR",
-            ZR => "ZR",
+            Register::R1 => "R1",
+            Register::R2 => "R2",
+            Register::R3 => "R3",
+            Register::R4 => "R4",
+            Register::SP => "SP",
+            Register::BP => "BP",
+            Register::IR => "IR",
+            Register::ZR => "ZR",
         })
     }
 }
@@ -400,5 +400,10 @@ mod tests{
     #[test]
     fn  ret_from_str(){
         assert_eq!(Instruction::from_str("RET").unwrap(), Instruction::Other{op: OtherOp::RET})
+    }
+    #[test]
+    fn  reg_to_str(){
+        assert_eq!(Register::R1.to_str(), "R1");
+        assert_eq!(Register::R2.to_str(), "R2");
     }
 }

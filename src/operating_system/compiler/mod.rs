@@ -3,6 +3,7 @@ mod AST;
 
 use std::collections::HashMap;
 use ::cpu::instructions::{Register};
+use self::AST::*;
 
 
 // typedef ast Node = JSON value
@@ -12,19 +13,6 @@ fn node_as_string(node: &Node) -> String{
     String::from(node.as_str().unwrap())
 }
 
-pub fn get_ast_json(path_to_c_source: &str) -> Node{
-    // //TODO: refactor to using our strong-typed AST module
-    // let output = Command::new(PATH_TO_PY_EXEC)
-    //                     .arg(PATH_TO_PARSER)
-    //                     .arg(path_to_c_source)
-    //                     .output()
-    //                     .expect("Failed to execute c parser");
-
-    // let json_str = String::from_utf8(output.stdout).expect("Error decoding ast json bytes");
-
-    // serde_json::from_str(&json_str).expect("parser output is not JSON serializable")
-    serde_json::from_str(&"{}").unwrap()  // TODO: switch to AST module
-}
 
 struct VariableData{
     name: String,
@@ -61,28 +49,30 @@ impl Compiler{
         Compiler {scope_to_data : HashMap::new(), tmp_label_count: 0}
     }
 
-    fn node_type(node: &Node) -> String{
-        node_as_string(&node["_nodetype"])
+    fn right_gen(&mut self, node: &Expression, scope : &String, code: &mut Vec<String>){
+        match node{
+            Expression::Constant(c) => {
+                let const_val = &c.val;
+                code.push(format!("MOV R1 {}", const_val));
+            }
+        }
     }
-
-    fn get_size_of_type(&self, varType: &String) -> u32{
-        1  // TODO: generalize
-    }
-
     // generates code, inserts generated code into the 'code' parameter
     // we want to get code as a paramter rather that having it as a member of Compiler,
     // so we can post-process the code generated for a specific object.
     // an example for usefulness of this is knowing which registers we need to save in a function.
-    fn code_gen(&mut self, node : &Node, scope : &String, code: &mut Vec<String>){
-        match Compiler::node_type(&node).as_ref(){
-            "FuncDef" => {
-                let funcName = node_as_string(&node["decl"]["name"]);
-                self.regiser_function(&node["body"], scope, &funcName);
+    fn code_gen(&mut self, node: AST::AstNode, scope : &String, code: &mut Vec<String>){
+        match node{
+            AstNode::FuncDef(func_def) => {
+
+                let funcName = &func_def.decl.name;
+                self.regiser_function(func_def, scope);
                 { // NLL workaround
                     let func_data = self.get_func_data(&funcName);
-
+                    println!("regs used:{:?}", func_data.regsUsed);
                     // save registers
                     for reg in func_data.regsUsed.iter(){
+                        println!("saving reg:{}", reg);
                         code.push(format!("PUSH {}", reg.to_str()));
                     }
                     // make space on stack for local variables
@@ -93,7 +83,7 @@ impl Compiler{
                     }
                 }
 
-                self.code_gen(&node["body"], &funcName, code);
+                self.code_gen(AstNode::Compound(&func_def.body), &funcName, code);
 
                 code.push(format!("_{}_END:", funcName));
 
@@ -107,38 +97,55 @@ impl Compiler{
                 code.push("RET".to_string());
 
             },
-            "Compound" => {
-                // for item in node["block_items"].as_array().unwrap().iter(){
-                //     self.code_gen(item, &scope, code);
-                // }
+            AstNode::Compound(compound)  => {
+                for item in compound.items.iter(){
+                    self.code_gen(AstNode::Statement(&item), &scope, code);
+                }
+            },
+            AstNode::Statement(statement) => {
+                match statement{
+                    Statement::Return(ret) => {
+                        self.right_gen(&ret.expr, &scope, code);
+                        code.push("ADD R2 BP 2".to_string());
+                        code.push("STR R2 R1 ".to_string());
+                        code.push(format!("JUMP _{}_END", scope));
+                    },
+                    Statement::Decl(decl) => {
+                        // TODO
+                    }
+                }
             }
             _ => {
-                panic!("Unkown node type: {}", Compiler::node_type(&node));
+                panic!("Unkown node type");
             }
         }
     }
 
-    fn get_var_type_and_size(&self, node: &Node) -> (String, u32){
-        (String::from("int"), 1) // TODO generalize
+    // fn get_var_type_and_size(&self, node: &Node) -> (String, u32){
+    //     (String::from("int"), 1) // TODO generalize
+    // }
+
+    fn get_type_size(&self, _type: &String) -> u32{
+        1 // TODO: generalize
     }
 
     // registers function's data, returns its name
-    fn regiser_function(&mut self, node : &Node, parentScope: &String, funcName: &String){
-
+    fn regiser_function(&mut self, func_def: &FuncDef, parentScope: &String){
+        let func_name = &func_def.decl.name; 
         // collect variables
         let mut next_var_offset = 0;
         let mut variables = HashMap::new();
-        println!("{}", node);
-        let block_items = node["block_items"].as_array().unwrap();
+        let block_items = &func_def.body.items;
         for item in block_items.iter(){
-            if Compiler::node_type(item) == "Decl"{
-                let var_name = node_as_string(&item["name"]);
-                let (var_type, var_size) = self.get_var_type_and_size(node);
+            if let Statement::Decl(decl)  = item{
+                let var_name = &decl.name;
+                let var_type = &decl._type;
+                let var_size = self.get_type_size(&var_type);
                 variables.insert(var_name.clone(), VariableData{
                     name: var_name.clone(),
                     varType: var_type.clone(),
                     offset: next_var_offset,
-                    size: self.get_size_of_type(&var_type),
+                    size: var_size,
                 });
                 next_var_offset += var_size;
             }
@@ -147,7 +154,7 @@ impl Compiler{
         let regsUsed = vec!{Register::R1, Register::R2};
         let funcRetType = String::from("int");
         let scopeData = ScopeData{
-                name: funcName.clone(),
+                name: func_name.clone(),
                 parentScope: parentScope.clone(),
                 variables: variables,
             };
@@ -156,8 +163,7 @@ impl Compiler{
                 regsUsed: regsUsed,
                 returnType: funcRetType,
         };
-        self.scope_to_data.insert(funcName.clone(), ScopeLike::Func(funcData));
-
+        self.scope_to_data.insert(func_name.clone(), ScopeLike::Func(funcData));
     }
 
     fn get_func_data(&self, func_name : &String) -> &FuncData{
@@ -170,18 +176,19 @@ impl Compiler{
 
     fn _compile(&mut self, path_to_c_source : &str) -> Vec<String>{
         let mut code: Vec<String> = Vec::new();
-        let ast = get_ast_json(path_to_c_source);
-        println!("{}", ast);
+        let ast = AST::get_ast(path_to_c_source);
+        // println!("{}", ast);
         
         // assuming only main func
-        let main_func = &ast["ext"][0];
-        let main_decl = &main_func["decl"];
-        assert_eq!(main_decl["name"], Node::String("main".to_string()));
-        assert_eq!(main_decl["type"]["type"]["type"]["names"][0], Node::String("int".to_string()));
+        let External::FuncDef(main_func) = &ast.externals[0];
+        let main_decl = &main_func.decl;
+        assert_eq!(main_decl.name, "main".to_string());
+        assert_eq!(main_decl.retType, "int".to_string());
 
-        self.code_gen(&main_func, &"".to_string(), &mut code);
+        self.code_gen(AstNode::FuncDef(&main_func), &"".to_string(), &mut code);
 
         code
+
     }   
 
 
