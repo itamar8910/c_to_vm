@@ -54,6 +54,17 @@ impl Compiler{
             Expression::Constant(c) => {
                 let const_val = &c.val;
                 code.push(format!("MOV R1 {}", const_val));
+            },
+            Expression::BinaryOp(op) => {
+               self.right_gen(&op.left, &scope, code); 
+               code.push("PUSH R1".to_string());  // save left result on stack
+               self.right_gen(&op.right, &scope, code); 
+               code.push("POP R2".to_string());
+               if let Some(opname) = op.opType.to_op(){
+                code.push(format!("{} R1 R2 R1", opname));
+               }else{
+                   // TODO: deal with logical ops
+               }
             }
         }
     }

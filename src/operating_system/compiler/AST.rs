@@ -125,15 +125,16 @@ impl Return{
 
 pub enum Expression{
     Constant(Constant),
+    BinaryOp(BinaryOp),
 }
 
 impl Expression{
     fn from(node: &JsonNode) -> Result<Expression, AstError>{
         match node["_nodetype"].as_str().unwrap(){
             "Constant" => Ok(Expression::Constant(Constant::from(&node)?)),
+            "BinaryOp" => Ok(Expression::BinaryOp(BinaryOp::from(&node)?)),
             _ => Err(()),
         }
-
     }
 }
 
@@ -151,6 +152,76 @@ impl Constant{
     }
 }
 
+pub struct BinaryOp{
+    pub opType: BinaryOpType,
+    pub left: Box<Expression>,
+    pub right: Box<Expression>,
+}
+
+impl BinaryOp{
+    fn from(node: &JsonNode) -> Result<BinaryOp, AstError>{
+        let left = Box::new(Expression::from(&node["left"])?);
+        let right = Box::new(Expression::from(&node["right"])?);
+        let opType = BinaryOpType::from(&node["op"])?;
+        Ok(BinaryOp{
+            opType: opType,
+            left: left,
+            right: right,
+        })
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub enum BinaryOpType{
+   ADD,
+   SUB,
+   MUL,
+   DIV,
+   MOD,
+   AND,
+   OR,
+   SHL,
+   SHR,
+   XOR,
+}
+
+
+impl BinaryOpType{
+    fn from(node: &JsonNode) -> Result<BinaryOpType, AstError>{
+        println!("BinaryOpType from:{}", node.as_str().unwrap());
+        match node.as_str().unwrap(){
+            "+" => Ok(BinaryOpType::ADD),
+            "-" => Ok(BinaryOpType::SUB),
+            "*" => Ok(BinaryOpType::MUL),
+            "/" => Ok(BinaryOpType::DIV),
+            "%" => Ok(BinaryOpType::MOD),
+            "&" => Ok(BinaryOpType::AND),
+            "|" => Ok(BinaryOpType::OR),
+            "<<" => Ok(BinaryOpType::SHL),
+            ">>" => Ok(BinaryOpType::SHR),
+            "^" => Ok(BinaryOpType::XOR),
+            _ => {
+                println!("BinaryOpType from returning Err");
+                Err(())
+                },
+        }
+    }
+    pub fn to_op(&self) -> Option<String>{
+        match &self{
+            BinaryOpType::ADD => Some("ADD".to_string()),
+            BinaryOpType::SUB => Some("SUB".to_string()),
+            BinaryOpType::MUL => Some("MUL".to_string()),
+            BinaryOpType::DIV => Some("DIV".to_string()),
+            BinaryOpType::MOD => Some("MOD".to_string()),
+            BinaryOpType::AND => Some("AND".to_string()),
+            BinaryOpType::OR => Some("OR".to_string()),
+            BinaryOpType::SHL => Some("SHL".to_string()),
+            BinaryOpType::SHR => Some("SHR".to_string()),
+            BinaryOpType::XOR => Some("XOR".to_string()),
+            _ => None,
+        }
+    }
+}
 
 pub fn get_ast(path_to_c_source: &str) -> RootAstNode{
     let output = Command::new(PATH_TO_PY_EXEC)
@@ -168,8 +239,9 @@ pub fn get_ast(path_to_c_source: &str) -> RootAstNode{
 #[cfg(test)]
 mod tests{
     use super::*;
+
     #[test]
-    fn simple_main(){
+    fn main_const_return(){
         let ast_root = get_ast("tests/compiler_test_data/const_expressions/inputs/1.c");
         assert_eq!(ast_root.externals.len(), 1);
         match &ast_root.externals[0]{
@@ -182,6 +254,37 @@ mod tests{
                             Expression::Constant(c) =>{
                                 assert_eq!(c._type, "int");
                                 assert_eq!(c.val, "2");
+                            },
+                            _ => panic!(),
+                        }
+
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn airth_ops(){
+        let ast_root = get_ast("tests/compiler_test_data/_arith_expressions/inputs/1plus1.c");
+        assert_eq!(ast_root.externals.len(), 1);
+        match &ast_root.externals[0]{
+            External::FuncDef(func_def) => {
+                assert_eq!(func_def.decl.name, "main");
+                assert_eq!(func_def.decl.retType, "int");
+                match &func_def.body.items[0]{
+                    Statement::Return(ret) => {
+                        match &ret.expr{
+                            Expression::BinaryOp(bop) =>{
+                                assert_eq!(bop.opType, BinaryOpType::ADD);
+                                let left = &*bop.left;
+                                if let Expression::Constant(left) = left{
+
+                                }else{
+                                    panic!();
+                                }
                             },
                             _ => panic!(),
                         }
