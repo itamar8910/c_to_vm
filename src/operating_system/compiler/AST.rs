@@ -97,6 +97,7 @@ pub enum Statement {
     Return(Return),
     Decl(Decl),
     Assignment(Assignment),
+    Expression(Expression),
 }
 
 impl Statement {
@@ -106,8 +107,9 @@ impl Statement {
             "Decl" => Ok(Statement::Decl(Decl::from(&node)?)),
             "Assignment" => Ok(Statement::Assignment(Assignment::from(&node)?)),
             _ => {
-                panic!("Invalid statement type");
-                Err(())
+                Ok(Statement::Expression(Expression::from(&node)?))
+                // panic!("Invalid statement type: {}", node["_nodetype"].as_str().unwrap());
+                // Err(())
                 },
         }
     }
@@ -300,6 +302,11 @@ impl UnaryOp {
 pub enum UnaryOpType {
     NEG,
     NOT,
+    XPP, // x++
+    PPX, // ++x
+    XMM, // x--
+    MMX, // --x
+
 }
 
 pub struct ID {
@@ -320,6 +327,10 @@ impl UnaryOpType {
         match node.as_str().unwrap() {
             "!" => Ok(UnaryOpType::NOT),
             "-" => Ok(UnaryOpType::NEG),
+            "p++" => Ok(UnaryOpType::XPP),
+            "++" => Ok(UnaryOpType::PPX),
+            "p--" => Ok(UnaryOpType::XMM),
+            "--" => Ok(UnaryOpType::MMX),
             _ => {
                 panic!("Unkown Unary type:{}", node.as_str().unwrap());
                 Err(())
@@ -356,12 +367,12 @@ impl AssignmentOp {
         let op_str = node["op"].as_str().unwrap().to_string();
         match op_str.len() {
             1 => Ok(AssignmentOp { op: None }),
-            2 => {
-                let op_char = op_str.chars().next().unwrap();
-                let eq_char = op_str.chars().nth(1).unwrap();
-                assert_eq!(eq_char, '=');
+            2 | 3 => {
+                // let op_char = op_str.chars().next().unwrap();
+                let eq_index = op_str.as_str().find('=').expect("no = sign in assignment with op");
+                let op_part : String = op_str.chars().take(eq_index).collect();
                 Ok(AssignmentOp {
-                    op: Some(BinaryOpType::_from(&op_char.to_string().as_str())?),
+                    op: Some(BinaryOpType::_from(&op_part.as_str())?),
                 })
             }
             _ => panic!("invalid assignment op string:{}", op_str),
@@ -438,7 +449,7 @@ mod tests {
     }
     #[test]
     fn var_init() {
-        let ast_root = get_ast("tests/compiler_test_data/_variables/inputs/initialize.c");
+        let ast_root = get_ast("tests/compiler_test_data/variables/inputs/initialize.c");
         assert_eq!(ast_root.externals.len(), 1);
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {

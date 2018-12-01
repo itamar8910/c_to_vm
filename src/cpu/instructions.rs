@@ -319,6 +319,7 @@ impl Instruction{
                 arg2: RegOrImm::from_str(args[3]).unwrap(),
             })
         } else if let Result::Ok(op) = DataOp::from_str(&op){
+            println!("{:?}", args);
             assert!(args.len() == 3);
             return Ok(Instruction::Data{
                 op: op,

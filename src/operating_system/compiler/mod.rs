@@ -128,6 +128,24 @@ impl Compiler{
                         self.right_gen(&op.expr, &scope, code);
                         code.push("TSTE R1 0".to_string());
                         code.push("MOV R1 ZR".to_string());
+                    },
+                    UnaryOpType::PPX | UnaryOpType::MMX => {
+                        self.left_gen(&op.expr, &scope, code);
+                        code.push("LOAD R2 R1".to_string());
+                        // let add_or_sub = match op.opType{
+                        //     UnaryOpType::PPX()
+                        // }
+                        code.push(format!("{} R2 R2 1", if op.opType == UnaryOpType::PPX {"ADD"} else {"SUB"}));
+                        code.push("STR R1 R2".to_string());
+                        code.push("MOV R1 R2".to_string());
+                    },
+                    UnaryOpType::XPP | UnaryOpType::XMM => {
+                        self.left_gen(&op.expr, &scope, code);
+                        code.push("LOAD R2 R1".to_string());
+                        code.push("PUSH R2".to_string());
+                        code.push(format!("{} R2 R2 1", if op.opType == UnaryOpType::XPP {"ADD"} else {"SUB"}));
+                        code.push("STR R1 R2".to_string());
+                        code.push("POP R1".to_string());
                     }
                 }
             },
@@ -153,7 +171,7 @@ impl Compiler{
             if let Some(bop) = &ass.op.op{
                 // if assignment is e.g +=, -=
                 code.push("PUSH R2".to_string());
-                code.push("LOAD R2 R2 R2".to_string());
+                code.push("LOAD R2 R2".to_string());
                 code.push(format!("{} R1 R2 R1", bop.to_op().unwrap()));
                 code.push("POP R2".to_string());
 
@@ -259,6 +277,9 @@ impl Compiler{
                     },
                     Statement::Assignment(ass) => {
                         self.gen_assignment_code(ass, &scope, code);
+                    },
+                    Statement::Expression(exp) => {
+                        self.right_gen(&exp, &scope, code);
                     }
                 }
             }
