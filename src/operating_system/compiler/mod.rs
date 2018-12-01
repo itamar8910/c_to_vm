@@ -63,8 +63,59 @@ impl Compiler{
                if let Some(opname) = op.opType.to_op(){
                 code.push(format!("{} R1 R2 R1", opname));
                }else{
-                   // TODO: deal with logical ops
-                   panic!();
+                   // deal with blooean ops
+                    match op.opType{
+
+                        BinaryOpType::EQ => {
+                            code.push("TSTE R1 R2".to_string());
+                            code.push("MOV R1 ZR".to_string());
+                        }
+
+                        BinaryOpType::NEQ => {
+                            code.push("TSTN R1 R2".to_string());
+                            code.push("MOV R1 ZR".to_string());
+                        }
+
+                        BinaryOpType::LOGICAL_AND => {
+                            code.push("TSTN R1 0".to_string());
+                            code.push("MOV R1 ZR".to_string());
+                            code.push("TSTN R2 0".to_string());
+                            code.push("AND R1 R1 ZR".to_string());
+                        }
+
+                        BinaryOpType::LOGICAL_OR => {
+                            code.push("TSTN R1 0".to_string());
+                            code.push("MOV R1 ZR".to_string());
+                            code.push("TSTN R2 0".to_string());
+                            code.push("OR R1 R1 ZR".to_string());
+                        }
+
+                        BinaryOpType::LT => {
+                            code.push("TSTL R2 R1".to_string());
+                            code.push("MOV R1 ZR".to_string());
+                        }
+
+                        BinaryOpType::LTEQ => {
+                            code.push("TSTG R2 R1".to_string());
+                            code.push("TSTN ZR 1".to_string());
+                            code.push("MOV R1 ZR".to_string());
+                        }
+
+                        BinaryOpType::GT => {
+                            code.push("TSTG R2 R1".to_string());
+                            code.push("MOV R1 ZR".to_string());
+                        }
+
+                        BinaryOpType::GTEQ => {
+                            code.push("TSTL R2 R1".to_string());
+                            code.push("TSTN ZR 1".to_string());
+                            code.push("MOV R1 ZR".to_string());
+                        },
+                        _ => {
+                            panic!("invalid boolean binary op");
+                        }
+                    }
+
                }
             },
             Expression::UnaryOp(op) => {
@@ -82,6 +133,7 @@ impl Compiler{
             }
         }
     }
+
     // generates code, inserts generated code into the 'code' parameter
     // we want to get code as a paramter rather that having it as a member of Compiler,
     // so we can post-process the code generated for a specific object.

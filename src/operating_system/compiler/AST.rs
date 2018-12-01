@@ -178,6 +178,7 @@ impl BinaryOp{
 
 #[derive(PartialEq, Debug)]
 pub enum BinaryOpType{
+    // arithmetical 
    ADD,
    SUB,
    MUL,
@@ -188,6 +189,15 @@ pub enum BinaryOpType{
    SHL,
    SHR,
    XOR,
+    // boolean 
+   EQ,
+   NEQ,
+   LOGICAL_AND,
+   LOGICAL_OR,
+   LT,
+   LTEQ,
+   GT,
+   GTEQ,
 }
 
 
@@ -205,6 +215,14 @@ impl BinaryOpType{
             "<<" => Ok(BinaryOpType::SHL),
             ">>" => Ok(BinaryOpType::SHR),
             "^" => Ok(BinaryOpType::XOR),
+            "==" => Ok(BinaryOpType::EQ),
+            "!=" => Ok(BinaryOpType::NEQ),
+            "&&" => Ok(BinaryOpType::LOGICAL_AND),
+            "||" => Ok(BinaryOpType::LOGICAL_OR),
+            "<" => Ok(BinaryOpType::LT),
+            "<=" => Ok(BinaryOpType::LTEQ),
+            ">" => Ok(BinaryOpType::GT),
+            ">=" => Ok(BinaryOpType::GTEQ),
             _ => {
                 println!("BinaryOpType from returning Err");
                 Err(())
@@ -223,7 +241,9 @@ impl BinaryOpType{
             BinaryOpType::SHL => Some("SHL".to_string()),
             BinaryOpType::SHR => Some("SHR".to_string()),
             BinaryOpType::XOR => Some("XOR".to_string()),
-            _ => None,
+            _ => {
+                None
+                },
         }
     }
 }
