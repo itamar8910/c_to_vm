@@ -130,7 +130,30 @@ impl Compiler{
                         code.push("MOV R1 ZR".to_string());
                     }
                 }
+            },
+            Expression::ID(id) => {
+                let var_name = &id.name;
+                self.load_addr_of(&var_name, &scope, code);
+                code.push("LOAD R1 R1".to_string());
             }
+        }
+    }
+
+
+    fn load_addr_of(&mut self, var_name: &String, scope: &String, code: &mut Vec<String>){
+        // TODO: support non-function scopes
+        // TODO: support looking form variables defined in ancestor scopes
+        if let Some(scope) = self.scope_to_data.get(scope){
+            if let ScopeLike::Func(func) = scope{
+                let var = func.scopeData.variables.get(var_name).unwrap();
+                let offset = var.offset;
+                let var_offset_from_bp = -((1 + func.regsUsed.len() as u32 + offset) as i32);
+                code.push(format!("ADD R1 BP {}", var_offset_from_bp));
+            }else{
+                panic!("currently only function scopes are supported");
+            }
+        }else{
+            panic!("Invalid scope");
         }
     }
 
@@ -155,7 +178,8 @@ impl Compiler{
                     // make space on stack for local variables
                     for (_, var_data) in &func_data.scopeData.variables{
                         for _ in 0..var_data.size{
-                            code.push(String::from("PUSH 0"));
+                            // R1 contains "garbage", but we're just making space
+                            code.push(String::from("PUSH R1"));
                         }
                     }
                 }
@@ -188,8 +212,18 @@ impl Compiler{
                         code.push(format!("JUMP _{}_END", scope));
                     },
                     Statement::Decl(decl) => {
-                        // TODO
-                    }
+                        if let Some(expr) = &decl.init{
+                            // if decleration is also initialization
+                            self.load_addr_of(&decl.name, &scope, code);
+                            code.push("PUSH R1".to_string());
+                            self.right_gen(&expr, &scope, code);
+                            code.push("POP R2".to_string());
+                            code.push("STR R2 R1".to_string());
+                        }
+                    },
+                    // Statement::Assignment(ass) => {
+                    //     self.right_gen(&ass, &scope, code);
+                    // }
                 }
             }
             _ => {

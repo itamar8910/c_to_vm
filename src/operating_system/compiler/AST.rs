@@ -101,6 +101,7 @@ impl Statement{
     fn from(node: &JsonNode) -> Result<Statement, AstError>{
         match node["_nodetype"].as_str().unwrap(){
             "Return" => Ok(Statement::Return(Return::from(&node)?)),
+            "Decl" => Ok(Statement::Decl(Decl::from(&node)?)),
             _ => Err(()),
         }
     }
@@ -108,11 +109,6 @@ impl Statement{
 
 pub struct Return{
     pub expr: Expression,
-}
-pub struct Decl{
-    pub name: String,
-    pub _type: String,
-
 }
 
 impl Return{
@@ -123,10 +119,36 @@ impl Return{
     }
 }
 
+pub struct Decl{
+    pub name: String,
+    pub _type: String,
+    pub init: Option<Expression>,
+
+}
+
+impl Decl{
+    fn from(node: &JsonNode) -> Result<Decl, AstError>{
+        let name = node["name"].as_str().unwrap().to_string();
+        let _type = "int".to_string();  // TODO: generalize
+        let init = match node["init"]{
+            JsonNode::Object(_) => Some(Expression::from(&node["init"])?),
+            JsonNode::Null => None,
+            _ => panic!("Invalid decl init type")
+        };
+        Ok(Decl{
+            name: name,
+            _type: _type,
+            init: init,
+        })
+    }
+}
+
+
 pub enum Expression{
     Constant(Constant),
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
+    ID(ID),
 }
 
 impl Expression{
@@ -135,6 +157,7 @@ impl Expression{
             "Constant" => Ok(Expression::Constant(Constant::from(&node)?)),
             "BinaryOp" => Ok(Expression::BinaryOp(BinaryOp::from(&node)?)),
             "UnaryOp" => Ok(Expression::UnaryOp(UnaryOp::from(&node)?)),
+            "ID" => Ok(Expression::ID(ID::from(&node)?)),
             _ => {
                 println!("Invalid expression type:{}", node["_nodetype"].as_str().unwrap());
                 Err(())
@@ -272,6 +295,19 @@ pub enum UnaryOpType{
     NOT,
 }
 
+pub struct ID{
+    pub name: String,
+}
+
+
+impl ID{
+    fn from(node: &JsonNode) -> Result<ID, AstError>{
+        Ok(ID{
+            name: node["name"].as_str().unwrap().to_string(),
+        })
+    }
+}
+
 
 impl UnaryOpType{
     fn from(node: &JsonNode) -> Result<UnaryOpType, AstError>{
@@ -280,7 +316,7 @@ impl UnaryOpType{
             "!" => Ok(UnaryOpType::NOT),
             "-" => Ok(UnaryOpType::NEG),
             _ => {
-                println!("UnaryOfType from returning Err");
+                panic!("Unkown Unary type:{}", node.as_str().unwrap());
                 Err(())
                 },
         }
@@ -352,6 +388,32 @@ mod tests{
                                 }
                             },
                             _ => panic!(),
+                        }
+
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        }
+
+    }
+    #[test]
+    fn var_init(){
+        let ast_root = get_ast("tests/compiler_test_data/_variables/inputs/initialize.c");
+        assert_eq!(ast_root.externals.len(), 1);
+        match &ast_root.externals[0]{
+            External::FuncDef(func_def) => {
+                assert_eq!(func_def.decl.name, "main");
+                assert_eq!(func_def.decl.retType, "int");
+                match &func_def.body.items[0]{
+                    Statement::Decl(decl) => {
+                        assert_eq!(decl.name, "a");
+                        assert_eq!(decl._type, "int");
+                        if let Some(Expression::Constant(c)) = &decl.init{
+                            assert_eq!(c.val, "2");
+                        }else{
+                            panic!();
                         }
 
                     },
