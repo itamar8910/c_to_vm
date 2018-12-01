@@ -64,7 +64,21 @@ impl Compiler{
                 code.push(format!("{} R1 R2 R1", opname));
                }else{
                    // TODO: deal with logical ops
+                   panic!();
                }
+            },
+            Expression::UnaryOp(op) => {
+                match op.opType{
+                    UnaryOpType::NEG => {
+                        self.right_gen(&op.expr, &scope, code);
+                        code.push("NEG R1".to_string());
+                    },
+                    UnaryOpType::NOT => {
+                        self.right_gen(&op.expr, &scope, code);
+                        code.push("TSTE R1 0".to_string());
+                        code.push("MOV R1 ZR".to_string());
+                    }
+                }
             }
         }
     }

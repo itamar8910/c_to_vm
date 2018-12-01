@@ -66,6 +66,7 @@ fn get_cases() -> Vec<CompilerTestCase>{
 fn test_compile_programs(){
     let cases = get_cases();
     for test_case in &cases{
+        println!("{}:{},{}", test_case.category, Path::new(&test_case.input_f).file_name().unwrap().to_str().unwrap(), Path::new(&test_case.target_f).file_name().unwrap().to_str().unwrap());
         let program = Compiler::compile(&test_case.input_f);
         let mut os = OS::new();
         let res = os.assemble_and_run(&program);
@@ -73,7 +74,7 @@ fn test_compile_programs(){
         let mut tar_content = String::new();
         tar_f.read_to_string(&mut tar_content).unwrap();
         println!("{}", program);
-        println!("{}:{}", test_case.category, Path::new(&test_case.input_f).file_name().unwrap().to_str().unwrap());
+        println!("{},{}", res.to_string(), tar_content.to_string());
         assert_eq!(res.to_string(), tar_content.trim());
     }
 }

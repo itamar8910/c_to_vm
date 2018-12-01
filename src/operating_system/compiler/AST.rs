@@ -126,6 +126,7 @@ impl Return{
 pub enum Expression{
     Constant(Constant),
     BinaryOp(BinaryOp),
+    UnaryOp(UnaryOp),
 }
 
 impl Expression{
@@ -133,7 +134,11 @@ impl Expression{
         match node["_nodetype"].as_str().unwrap(){
             "Constant" => Ok(Expression::Constant(Constant::from(&node)?)),
             "BinaryOp" => Ok(Expression::BinaryOp(BinaryOp::from(&node)?)),
-            _ => Err(()),
+            "UnaryOp" => Ok(Expression::UnaryOp(UnaryOp::from(&node)?)),
+            _ => {
+                println!("Invalid expression type:{}", node["_nodetype"].as_str().unwrap());
+                Err(())
+                },
         }
     }
 }
@@ -223,6 +228,46 @@ impl BinaryOpType{
     }
 }
 
+
+
+pub struct UnaryOp{
+    pub opType: UnaryOpType,
+    pub expr: Box<Expression>,
+}
+
+impl UnaryOp{
+    fn from(node: &JsonNode) -> Result<UnaryOp, AstError>{
+        let expr = Box::new(Expression::from(&node["expr"])?);
+        let opType = UnaryOpType::from(&node["op"])?;
+        Ok(UnaryOp{
+            opType: opType,
+            expr: expr,
+        })
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub enum UnaryOpType{
+    NEG,
+    NOT,
+}
+
+
+impl UnaryOpType{
+    fn from(node: &JsonNode) -> Result<UnaryOpType, AstError>{
+        println!("UnaryOpType from:{}", node.as_str().unwrap());
+        match node.as_str().unwrap(){
+            "!" => Ok(UnaryOpType::NOT),
+            "-" => Ok(UnaryOpType::NEG),
+            _ => {
+                println!("UnaryOfType from returning Err");
+                Err(())
+                },
+        }
+    }
+}
+
+
 pub fn get_ast(path_to_c_source: &str) -> RootAstNode{
     let output = Command::new(PATH_TO_PY_EXEC)
                         .arg(PATH_TO_PARSER)
@@ -268,7 +313,7 @@ mod tests{
 
     #[test]
     fn airth_ops(){
-        let ast_root = get_ast("tests/compiler_test_data/_arith_expressions/inputs/1plus1.c");
+        let ast_root = get_ast("tests/compiler_test_data/arith_expressions/inputs/1plus1.c");
         assert_eq!(ast_root.externals.len(), 1);
         match &ast_root.externals[0]{
             External::FuncDef(func_def) => {
