@@ -135,10 +135,32 @@ impl Compiler{
                 let var_name = &id.name;
                 self.load_addr_of(&var_name, &scope, code);
                 code.push("LOAD R1 R1".to_string());
+            },
+            Expression::Assignment(ass) => {
+                self.gen_assignment_code(ass, &scope, code);
             }
         }
     }
 
+    // generates code for assignment
+    // at the end of the generated code, value of assignment is in R1
+    fn gen_assignment_code(&mut self, ass : &Assignment, scope : &String, code: &mut Vec<String>){
+            self.left_gen(&ass.lvalue, &scope, code);
+            code.push("PUSH R1".to_string());
+            self.right_gen(&ass.rvalue, &scope, code);
+            code.push("POP R2".to_string());
+            // now R1 holds rvalue, R2 holds lvalue
+            if let Some(bop) = &ass.op.op{
+                // if assignment is e.g +=, -=
+                code.push("PUSH R2".to_string());
+                code.push("LOAD R2 R2 R2".to_string());
+                code.push(format!("{} R1 R2 R1", bop.to_op().unwrap()));
+                code.push("POP R2".to_string());
+
+            }
+            code.push("STR R2 R1".to_string());
+
+    }
 
     fn load_addr_of(&mut self, var_name: &String, scope: &String, code: &mut Vec<String>){
         // TODO: support non-function scopes
@@ -154,6 +176,20 @@ impl Compiler{
             }
         }else{
             panic!("Invalid scope");
+        }
+    }
+
+
+    // after executing the generated code, evaluate daddress is stored in R1
+    fn left_gen(&mut self, node: &Expression, scope : &String, code: &mut Vec<String>){
+        match node{
+            Expression::ID(id) => {
+                let var_name = &id.name;
+                self.load_addr_of(&var_name, &scope, code);
+            },
+            _ => {
+                panic!("not yet supported as an lvalue")
+            }
         }
     }
 
@@ -221,9 +257,9 @@ impl Compiler{
                             code.push("STR R2 R1".to_string());
                         }
                     },
-                    // Statement::Assignment(ass) => {
-                    //     self.right_gen(&ass, &scope, code);
-                    // }
+                    Statement::Assignment(ass) => {
+                        self.gen_assignment_code(ass, &scope, code);
+                    }
                 }
             }
             _ => {
