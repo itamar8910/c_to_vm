@@ -3,3 +3,4 @@
 **/venv
 .vscode/
 example.c
+tests/generated_compiler_tests.rs
