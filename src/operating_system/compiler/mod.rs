@@ -244,6 +244,13 @@ impl Compiler{
 
                 // restore registers
                 let func_data = self.get_func_data(&funcName);
+                // dealocate stack space of local variables
+                for (_, var_data) in &func_data.scopeData.variables{
+                    for _ in 0..var_data.size{
+                        // R1 contains "garbage", but we're just making space
+                        code.push(String::from("POP R2"));
+                    }
+                }
 
                 // save registers
                 for reg in func_data.regsUsed.iter().rev(){
