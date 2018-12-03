@@ -156,6 +156,20 @@ impl Compiler{
             },
             Expression::Assignment(ass) => {
                 self.gen_assignment_code(ass, &scope, code);
+            },
+            Expression::TernaryOp(top) => {
+                let neg_label = format!("TERNARY_{}_NO", self.tmp_label_count);
+                let ternary_end_label = format!("TERNARY_{}_YES", self.tmp_label_count);
+                self.tmp_label_count += 1;
+                self.right_gen(&top.cond, &scope, code);
+                code.push("TSTN R1 0".to_string());
+                code.push(format!("FJMP {}", neg_label));
+                self.right_gen(&*top.iftrue, &scope, code);
+                code.push(format!("JUMP {}", ternary_end_label));
+                code.push(format!("{}:", neg_label));
+                self.right_gen(&*top.iffalse, &scope, code);
+                code.push(format!("{}:", ternary_end_label));
+
             }
         }
     }

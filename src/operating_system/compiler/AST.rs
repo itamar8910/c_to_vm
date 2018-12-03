@@ -165,6 +165,7 @@ pub enum Expression {
     UnaryOp(UnaryOp),
     ID(ID),
     Assignment(Assignment),
+    TernaryOp(TernaryOp)
 }
 
 impl Expression {
@@ -175,6 +176,7 @@ impl Expression {
             "UnaryOp" => Ok(Expression::UnaryOp(UnaryOp::from(&node)?)),
             "ID" => Ok(Expression::ID(ID::from(&node)?)),
             "Assignment" => Ok(Expression::Assignment(Assignment::from(&node)?)),
+            "TernaryOp" => Ok(Expression::TernaryOp(TernaryOp::from(&node)?)),
             _ => {
                 println!(
                     "Invalid expression type:{}",
@@ -410,6 +412,21 @@ impl If {
     }
 }
 
+pub struct TernaryOp{
+    pub cond: Box<Expression>,
+    pub iftrue: Box<Expression>,
+    pub iffalse: Box<Expression>,
+}
+impl TernaryOp {
+    fn from(node: &JsonNode) -> Result<TernaryOp, AstError> {
+        Ok(TernaryOp{
+            cond: Box::new(Expression::from(&node["cond"])?),
+            iftrue: Box::new(Expression::from(&node["iftrue"])?),
+            iffalse: Box::new(Expression::from(&node["iffalse"])?),
+        })
+    }
+}
+
 pub fn get_ast(path_to_c_source: &str) -> RootAstNode {
     let output = Command::new(PATH_TO_PY_EXEC)
         .arg(PATH_TO_PARSER)
@@ -564,6 +581,33 @@ mod tests {
                         match &if_stmt.iffalse{
                             None => {},
                             _ => panic!()
+                        }
+                    }
+                    _ => panic!(),
+                }
+            }
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn ternary() {
+        let ast_root = get_ast("tests/compiler_test_data/ternary_expression/inputs/ternary.c");
+        assert_eq!(ast_root.externals.len(), 1);
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                assert_eq!(func_def.decl.name, "main");
+                assert_eq!(func_def.decl.retType, "int");
+                match &func_def.body.items[1] {
+                    Statement::Return(ret) => {
+                        if let Expression::TernaryOp(top) = &ret.expr{
+                            if let Expression::BinaryOp(ref bop) = **&top.cond{
+                                match bop.opType{
+                                    BinaryOpType::GT => {},
+                                    _ => panic!(),
+                                }
+                            }
+                        } else{
+                            panic!();
                         }
                     }
                     _ => panic!(),
