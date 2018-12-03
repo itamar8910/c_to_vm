@@ -86,9 +86,16 @@ pub struct Compound {
 impl Compound {
     fn from(node: &JsonNode) -> Result<Compound, AstError> {
         let mut statements = Vec::new();
-        for statementNode in node["block_items"].as_array().unwrap().iter() {
-            statements.push(Statement::from(&statementNode)?);
-        }
+        match node["block_items"]{
+            JsonNode::Null => {
+                statements.push(Statement::from(&node)?);
+            },
+            _ => {
+                for statementNode in node["block_items"].as_array().unwrap().iter() {
+                    statements.push(Statement::from(&statementNode)?);
+                }
+            }
+        } 
         Ok(Compound { items: statements })
     }
 }
@@ -98,6 +105,7 @@ pub enum Statement {
     Decl(Decl),
     Assignment(Assignment),
     Expression(Expression),
+    If(If),
 }
 
 impl Statement {
@@ -106,6 +114,7 @@ impl Statement {
             "Return" => Ok(Statement::Return(Return::from(&node)?)),
             "Decl" => Ok(Statement::Decl(Decl::from(&node)?)),
             "Assignment" => Ok(Statement::Assignment(Assignment::from(&node)?)),
+            "If" => Ok(Statement::If(If::from(&node)?)),
             _ => {
                 Ok(Statement::Expression(Expression::from(&node)?))
                 // panic!("Invalid statement type: {}", node["_nodetype"].as_str().unwrap());
@@ -380,6 +389,27 @@ impl AssignmentOp {
     }
 }
 
+pub struct If{
+    pub cond: Expression,
+    pub iftrue: Box<Compound>,
+    pub iffalse: Option<Box<Compound>>,
+}
+
+impl If {
+    fn from(node: &JsonNode) -> Result<If, AstError> {
+        let iffalse = match &node["iffalse"]{
+            JsonNode::Object(_) => Some(Box::new(Compound::from(&node["iffalse"])?)),
+            JsonNode::Null => None,
+            _ => panic!("invalid type for else node")
+        };
+        Ok(If{
+            cond: Expression::from(&node["cond"])?,
+            iftrue: Box::new(Compound::from(&node["iftrue"])?),
+            iffalse: iffalse,
+        })
+    }
+}
+
 pub fn get_ast(path_to_c_source: &str) -> RootAstNode {
     let output = Command::new(PATH_TO_PY_EXEC)
         .arg(PATH_TO_PARSER)
@@ -463,6 +493,77 @@ mod tests {
                             assert_eq!(c.val, "2");
                         } else {
                             panic!();
+                        }
+                    }
+                    _ => panic!(),
+                }
+            }
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn if_without_else() {
+        let ast_root = get_ast("tests/compiler_test_data/if_statement/inputs/if_taken.c");
+        assert_eq!(ast_root.externals.len(), 1);
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                assert_eq!(func_def.decl.name, "main");
+                assert_eq!(func_def.decl.retType, "int");
+                match &func_def.body.items[2] {
+                    Statement::If(if_stmt) => {
+                        if let Expression::ID(id) = &if_stmt.cond{
+                            assert_eq!(id.name, "a");
+                        } else{
+                            panic!();
+                        }
+                        let iftrue = &**&if_stmt.iftrue; // unbox statement
+                        let iftrue = &iftrue.items[0];
+                        if let Statement::Assignment(ass) = iftrue{
+                        }else{
+                            panic!();
+                        }
+                        match &if_stmt.iffalse{
+                            None => {},
+                            _ => panic!()
+                        }
+                    }
+                    _ => panic!(),
+                }
+            }
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn compound_if() {
+        let ast_root = get_ast("tests/compiler_test_data/if_statement/inputs/if_compound.c");
+        assert_eq!(ast_root.externals.len(), 1);
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                assert_eq!(func_def.decl.name, "main");
+                assert_eq!(func_def.decl.retType, "int");
+                match &func_def.body.items[1] {
+                    Statement::If(if_stmt) => {
+                        if let Expression::BinaryOp(bop) = &if_stmt.cond{
+                            match bop.opType{
+                                BinaryOpType::GT => {},
+                                _ => panic!()
+                            }
+                        } else{
+                            panic!();
+                        }
+                        let iftrue = &*if_stmt.iftrue; // unbox statement, then get reference to unboxed value
+                        if let Statement::Assignment(ass) = &iftrue.items[0]{
+                        }else{
+                            panic!();
+                        }
+                        if let Statement::Assignment(ass) = &iftrue.items[1]{
+                        }else{
+                            panic!();
+                        }
+                        match &if_stmt.iffalse{
+                            None => {},
+                            _ => panic!()
                         }
                     }
                     _ => panic!(),

@@ -287,6 +287,27 @@ impl Compiler{
                     },
                     Statement::Expression(exp) => {
                         self.right_gen(&exp, &scope, code);
+                    },
+                    Statement::If(if_stmt) => {
+                        let else_label = format!("IF_{}_ELSE", self.tmp_label_count);
+                        let if_end_label = format!("IF_{}_END", self.tmp_label_count);
+                        self.tmp_label_count += 1;
+                        // TODO: create a new scope for the if statement
+                        self.right_gen(&if_stmt.cond, &scope, code);
+                        code.push("TSTN R1 0".to_string());
+                        code.push(format!("FJMP {}", else_label));
+                        self.code_gen(AstNode::Compound(&*if_stmt.iftrue), &scope, code);
+                        code.push(format!("JUMP {}", if_end_label));
+                        code.push(format!("{}:", else_label));
+                        match &if_stmt.iffalse.as_ref(){
+                            Some(ref iffalse) => {
+                                self.code_gen(AstNode::Compound(&*(*iffalse)), &scope, code);
+                            },
+                            None => {}
+                        }
+                        code.push(format!("{}:", if_end_label));
+
+
                     }
                 }
             }
