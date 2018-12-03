@@ -18,7 +18,7 @@ def get_test_categories():
         category: {
             'inputs': sorted(listdir(path.join(TESTS_DIR, category, 'inputs'))),
             'targets': sorted(listdir(path.join(TESTS_DIR, category, 'targets'))),
-        } for category in listdir(TESTS_DIR)
+        } for category in listdir(TESTS_DIR) if not category.startswith('_')
     }
 
 
