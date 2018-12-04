@@ -428,6 +428,7 @@ impl TernaryOp {
 }
 
 pub fn get_ast(path_to_c_source: &str) -> RootAstNode {
+    assert!(path_to_c_source.ends_with(".c"));
     let output = Command::new(PATH_TO_PY_EXEC)
         .arg(PATH_TO_PARSER)
         .arg(path_to_c_source)
