@@ -1,11 +1,10 @@
-
 extern crate simple_vm;
 
-use simple_vm::operating_system::OS;
 use simple_vm::cpu::instructions::Register;
+use simple_vm::operating_system::OS;
 
 #[test]
-fn test_add(){
+fn test_add() {
     let program = "
     MOV R1 1
     MOV R2 2
@@ -15,12 +14,12 @@ fn test_add(){
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
     assert_eq!(res, -1);
-    assert_eq!(os.cpu.regs.get(&Register::R1),3);
-    assert_eq!(os.cpu.regs.get(&Register::R2),2);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 3);
+    assert_eq!(os.cpu.regs.get(&Register::R2), 2);
 }
 
 #[test]
-fn test_sub(){
+fn test_sub() {
     let program = "
     MOV R1 3
     MOV R2 2
@@ -29,12 +28,11 @@ fn test_sub(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),1);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 1);
 }
 
-
 #[test]
-fn test_mul(){
+fn test_mul() {
     let program = "
     MOV R1 3
     MOV R2 2
@@ -43,10 +41,10 @@ fn test_mul(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),6);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 6);
 }
 #[test]
-fn test_div(){
+fn test_div() {
     let program = "
     MOV R1 5
     MOV R2 2
@@ -55,10 +53,10 @@ fn test_div(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),2);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 2);
 }
 #[test]
-fn test_mod(){
+fn test_mod() {
     let program = "
     MOV R1 5
     MOV R2 2
@@ -67,10 +65,10 @@ fn test_mod(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),1);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 1);
 }
 #[test]
-fn test_and(){
+fn test_and() {
     let program = "
     MOV R1 6
     MOV R2 3
@@ -79,10 +77,10 @@ fn test_and(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),2);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 2);
 }
 #[test]
-fn test_or(){
+fn test_or() {
     let program = "
     MOV R1 6
     MOV R2 3
@@ -91,10 +89,10 @@ fn test_or(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),7);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 7);
 }
 #[test]
-fn test_shl(){
+fn test_shl() {
     let program = "
     MOV R1 6
     MOV R2 3
@@ -103,11 +101,11 @@ fn test_shl(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),48);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 48);
 }
 
 #[test]
-fn test_shr(){
+fn test_shr() {
     let program = "
     MOV R1 6
     MOV R2 2
@@ -116,11 +114,11 @@ fn test_shr(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),1);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 1);
 }
 
 #[test]
-fn test_xor(){
+fn test_xor() {
     let program = "
     MOV R1 6
     MOV R2 2
@@ -129,10 +127,10 @@ fn test_xor(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),4);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 4);
 }
 #[test]
-fn test_neg(){
+fn test_neg() {
     let program = "
     MOV R1 4
     NEG R1
@@ -140,11 +138,11 @@ fn test_neg(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),-4);
+    assert_eq!(os.cpu.regs.get(&Register::R1), -4);
 }
 
 #[test]
-fn test_add_imm(){
+fn test_add_imm() {
     let program = "
     MOV R1 2
     ADD R1 R1 3
@@ -152,10 +150,10 @@ fn test_add_imm(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),5);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 5);
 }
 #[test]
-fn test_str(){
+fn test_str() {
     let program = "
     MOV R1 8000
     MOV R2 5
@@ -164,15 +162,13 @@ fn test_str(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R2),5);
-    assert_eq!(os.cpu.regs.get(&Register::R1),8000);
+    assert_eq!(os.cpu.regs.get(&Register::R2), 5);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 8000);
     assert_eq!(os.cpu.mem.get_num(8000), 5);
 }
 
-
-
 #[test]
-fn test_str_imm(){
+fn test_str_imm() {
     let program = "
         MOV R1 8000
         STR R1 7
@@ -180,11 +176,11 @@ fn test_str_imm(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),8000);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 8000);
     assert_eq!(os.cpu.mem.get_num(8000), 7);
 }
 #[test]
-fn test_load(){
+fn test_load() {
     let program = "
         MOV R1 8000
         STR R1 7
@@ -193,12 +189,12 @@ fn test_load(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),8000);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 8000);
     assert_eq!(os.cpu.mem.get_num(8000), 7);
-    assert_eq!(os.cpu.regs.get(&Register::R2),7);
+    assert_eq!(os.cpu.regs.get(&Register::R2), 7);
 }
 #[test]
-fn test_load_imm(){
+fn test_load_imm() {
     let program = "
         MOV R1 8000
         STR R1 7
@@ -207,12 +203,12 @@ fn test_load_imm(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::R1),8000);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 8000);
     assert_eq!(os.cpu.mem.get_num(8000), 7);
-    assert_eq!(os.cpu.regs.get(&Register::R2),7);
+    assert_eq!(os.cpu.regs.get(&Register::R2), 7);
 }
 #[test]
-fn test_mov(){
+fn test_mov() {
     let program = "
         MOV R1 3
         MOV R2 R1
@@ -224,7 +220,7 @@ fn test_mov(){
     assert_eq!(os.cpu.regs.get(&Register::R2), 3);
 }
 #[test]
-fn test_mov_imm(){
+fn test_mov_imm() {
     let program = "
         MOV R1 3
         HALT
@@ -235,7 +231,7 @@ fn test_mov_imm(){
 }
 
 #[test]
-fn test_tste_yes(){
+fn test_tste_yes() {
     let program = "
         MOV R1 3
         MOV R2 3
@@ -244,10 +240,10 @@ fn test_tste_yes(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::ZR),1);
+    assert_eq!(os.cpu.regs.get(&Register::ZR), 1);
 }
 #[test]
-fn test_tste_no(){
+fn test_tste_no() {
     let program = "
         MOV R1 3
         MOV R2 4
@@ -256,11 +252,11 @@ fn test_tste_no(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::ZR),0);
+    assert_eq!(os.cpu.regs.get(&Register::ZR), 0);
 }
 
 #[test]
-fn test_tste_imm_yes(){
+fn test_tste_imm_yes() {
     let program = "
         MOV R1 3
         TSTE R1 3
@@ -268,65 +264,61 @@ fn test_tste_imm_yes(){
     ";
     let mut os = OS::new();
     let res = os.assemble_and_run(program);
-    assert_eq!(os.cpu.regs.get(&Register::ZR),1);
+    assert_eq!(os.cpu.regs.get(&Register::ZR), 1);
 }
-
 
 // tests bellow were converted from py test with regex
 
 #[test]
-fn test_tstg_yes(){
+fn test_tstg_yes() {
     let program = "
         MOV R1 4
         MOV R2 3
         TSTG R1 R2 
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::ZR), 1);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::ZR), 1);
 }
 
-
-
-
 #[test]
-fn test_tstg_no(){
+fn test_tstg_no() {
     let program = "
         MOV R1 3
         MOV R2 4
         TSTG R1 R2 
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::ZR), 0);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::ZR), 0);
 }
 
 #[test]
-fn test_tstl_yes(){
+fn test_tstl_yes() {
     let program = "
         MOV R1 2
         MOV R2 3
         TSTL R1 R2 
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::ZR), 1);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::ZR), 1);
 }
 
 #[test]
-fn test_tstl_no(){
+fn test_tstl_no() {
     let program = "
         MOV R1 3
         MOV R2 2
         TSTL R1 R2 
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::ZR), 0);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::ZR), 0);
 }
 
 // #[test]
@@ -343,7 +335,7 @@ fn test_tstl_no(){
 // }
 
 #[test]
-fn test_jump(){
+fn test_jump() {
     let program = "
         MOV R1 3
         JUMP SKIP
@@ -351,12 +343,12 @@ fn test_jump(){
         SKIP:
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 3);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 3);
 }
 #[test]
-fn test_jump2(){
+fn test_jump2() {
     let program = "
         MOV R1 3
         JUMP SKIP
@@ -369,13 +361,13 @@ fn test_jump2(){
         END:
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 4);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 4);
 }
 
 #[test]
-fn test_tjump_pos(){
+fn test_tjump_pos() {
     let program = "
         MOV R1 3
         TSTE R1 3
@@ -384,13 +376,13 @@ fn test_tjump_pos(){
         SKIP:
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 3);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 3);
 }
 
 #[test]
-fn test_tjump_neg(){
+fn test_tjump_neg() {
     let program = "
         MOV R1 3
         TSTE R1 2
@@ -399,13 +391,13 @@ fn test_tjump_neg(){
         SKIP:
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 4);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 4);
 }
 
 #[test]
-fn test_fjump_pos(){
+fn test_fjump_pos() {
     let program = "
         MOV R1 3
         TSTE R1 2
@@ -414,13 +406,13 @@ fn test_fjump_pos(){
         SKIP:
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 3);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 3);
 }
 
 #[test]
-fn test_fjump_neg(){
+fn test_fjump_neg() {
     let program = "
         MOV R1 3
         TSTE R1 3
@@ -429,13 +421,13 @@ fn test_fjump_neg(){
         SKIP:
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 4);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 4);
 }
 
 #[test]
-fn test_push_imm(){
+fn test_push_imm() {
     let program = "
         MOV R1 1
         PUSH R1 
@@ -444,13 +436,13 @@ fn test_push_imm(){
         POP R1
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 2);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 2);
 }
 
 #[test]
-fn test_push(){
+fn test_push() {
     let program = "
         MOV R1 1
         MOV R2 3
@@ -459,13 +451,13 @@ fn test_push(){
         POP R1
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 3);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 3);
 }
 
 #[test]
-fn test_pop(){
+fn test_pop() {
     let program = "
         MOV R2 1
         MOV R1 4
@@ -475,14 +467,14 @@ fn test_pop(){
         POP R1 
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R2), 4);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 1);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R2), 4);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 1);
 }
 
 #[test]
-fn test_call_ret_simple(){
+fn test_call_ret_simple() {
     let program = "
         JUMP MAIN
         FOO:
@@ -494,15 +486,15 @@ fn test_call_ret_simple(){
         MOV R3 3
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 1);
-	assert_eq!(os.cpu.regs.get(&Register::R2), 2);
-	assert_eq!(os.cpu.regs.get(&Register::R3), 3);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 1);
+    assert_eq!(os.cpu.regs.get(&Register::R2), 2);
+    assert_eq!(os.cpu.regs.get(&Register::R3), 3);
 }
 
 #[test]
-fn test_call_ret_with_args_and_retval(){
+fn test_call_ret_with_args_and_retval() {
     let program = "
         JUMP MAIN
         ADD:
@@ -525,13 +517,13 @@ fn test_call_ret_with_args_and_retval(){
         POP R1
         HALT
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 3);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 3);
 }
 
 #[test]
-fn test_call_multiple(){
+fn test_call_multiple() {
     let program = "
     JUMP MAIN
     MAIN:
@@ -547,13 +539,13 @@ fn test_call_multiple(){
     FOO3:
     RET
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 5);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 5);
 }
 
 #[test]
-fn test_recursion_fiboncci(){
+fn test_recursion_fiboncci() {
     let program = "
     JUMP MAIN
     MAIN:
@@ -599,20 +591,20 @@ fn test_recursion_fiboncci(){
     POP R1
     RET
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(os.cpu.regs.get(&Register::R1), 8);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 8);
 }
 
 #[test]
-fn test_program_ret_val(){
+fn test_program_ret_val() {
     let program = "
     MAIN:
     ADD R1 BP 2
     STR R1 3
     RET
     ";
-	let mut os = OS::new();
-	let res = os.assemble_and_run(program);
-	assert_eq!(res, 3);
+    let mut os = OS::new();
+    let res = os.assemble_and_run(program);
+    assert_eq!(res, 3);
 }

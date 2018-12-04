@@ -1,8 +1,7 @@
-
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub enum Register{
+pub enum Register {
     R1,
     R2,
     R3,
@@ -13,10 +12,10 @@ pub enum Register{
     ZR,
 }
 
-impl FromStr for Register{
+impl FromStr for Register {
     type Err = ();
-    fn from_str(s: &str) -> Result<Register, ()>{
-        match s{
+    fn from_str(s: &str) -> Result<Register, ()> {
+        match s {
             "R1" => Ok(Register::R1),
             "R2" => Ok(Register::R2),
             "R3" => Ok(Register::R3),
@@ -25,7 +24,7 @@ impl FromStr for Register{
             "BP" => Ok(Register::BP),
             "IR" => Ok(Register::IR),
             "ZR" => Ok(Register::ZR),
-            _ => Err(()) ,
+            _ => Err(()),
         }
     }
 }
@@ -35,22 +34,25 @@ impl std::fmt::Display for Register {
     }
 }
 
-impl Register{
-    pub fn to_str(&self) -> String{
-        format!("{}", match self{
-            Register::R1 => "R1",
-            Register::R2 => "R2",
-            Register::R3 => "R3",
-            Register::R4 => "R4",
-            Register::SP => "SP",
-            Register::BP => "BP",
-            Register::IR => "IR",
-            Register::ZR => "ZR",
-        })
+impl Register {
+    pub fn to_str(&self) -> String {
+        format!(
+            "{}",
+            match self {
+                Register::R1 => "R1",
+                Register::R2 => "R2",
+                Register::R3 => "R3",
+                Register::R4 => "R4",
+                Register::SP => "SP",
+                Register::BP => "BP",
+                Register::IR => "IR",
+                Register::ZR => "ZR",
+            }
+        )
     }
 }
 #[derive(Debug, PartialEq, Clone)]
-pub enum BinArithOp{
+pub enum BinArithOp {
     ADD,
     SUB,
     MUL,
@@ -63,10 +65,10 @@ pub enum BinArithOp{
     XOR,
 }
 
-impl FromStr for BinArithOp{
+impl FromStr for BinArithOp {
     type Err = ();
-    fn from_str(s: &str) -> Result<BinArithOp, ()>{
-        match s{
+    fn from_str(s: &str) -> Result<BinArithOp, ()> {
+        match s {
             "ADD" => Ok(BinArithOp::ADD),
             "SUB" => Ok(BinArithOp::SUB),
             "MUL" => Ok(BinArithOp::MUL),
@@ -77,13 +79,13 @@ impl FromStr for BinArithOp{
             "SHL" => Ok(BinArithOp::SHL),
             "SHR" => Ok(BinArithOp::SHR),
             "XOR" => Ok(BinArithOp::XOR),
-            _ => Err(()) ,
+            _ => Err(()),
         }
     }
 }
-impl BinArithOp{
-    pub fn eval(&self, x: i32, y: i32) -> i32{
-        match &self{
+impl BinArithOp {
+    pub fn eval(&self, x: i32, y: i32) -> i32 {
+        match &self {
             BinArithOp::ADD => x + y,
             BinArithOp::SUB => x - y,
             BinArithOp::MUL => x * y,
@@ -99,84 +101,85 @@ impl BinArithOp{
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum UnaryArithOp{
+pub enum UnaryArithOp {
     NEG,
 }
-impl FromStr for UnaryArithOp{
+impl FromStr for UnaryArithOp {
     type Err = ();
-    fn from_str(s: &str) -> Result<UnaryArithOp, ()>{
-        match s{
+    fn from_str(s: &str) -> Result<UnaryArithOp, ()> {
+        match s {
             "NEG" => Ok(UnaryArithOp::NEG),
-            _ => Err(()) , }
+            _ => Err(()),
+        }
     }
 }
 
-impl UnaryArithOp{
-    pub fn eval(&self, x: i32) -> i32{
-        match &self{
+impl UnaryArithOp {
+    pub fn eval(&self, x: i32) -> i32 {
+        match &self {
             UnaryArithOp::NEG => -x,
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum DataOp{
+pub enum DataOp {
     LOAD,
     STR,
     MOV,
 }
 
-impl FromStr for DataOp{
+impl FromStr for DataOp {
     type Err = ();
-    fn from_str(s: &str) -> Result<DataOp, ()>{
-        match s{
+    fn from_str(s: &str) -> Result<DataOp, ()> {
+        match s {
             "LOAD" => Ok(DataOp::LOAD),
             "STR" => Ok(DataOp::STR),
             "MOV" => Ok(DataOp::MOV),
-            _ => Err(()) ,
+            _ => Err(()),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum StackOp{
+pub enum StackOp {
     PUSH,
     POP,
 }
-impl FromStr for StackOp{
+impl FromStr for StackOp {
     type Err = ();
-    fn from_str(s: &str) -> Result<StackOp, ()>{
-        match s{
+    fn from_str(s: &str) -> Result<StackOp, ()> {
+        match s {
             "PUSH" => Ok(StackOp::PUSH),
             "POP" => Ok(StackOp::POP),
-            _ => Err(()) ,
+            _ => Err(()),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum TestOp{
+pub enum TestOp {
     TSTE,
     TSTN,
     TSTG,
     TSTL,
 }
-impl FromStr for TestOp{
+impl FromStr for TestOp {
     type Err = ();
-    fn from_str(s: &str) -> Result<TestOp, ()>{
-        match s{
+    fn from_str(s: &str) -> Result<TestOp, ()> {
+        match s {
             "TSTE" => Ok(TestOp::TSTE),
             "TSTN" => Ok(TestOp::TSTN),
             "TSTG" => Ok(TestOp::TSTG),
             "TSTL" => Ok(TestOp::TSTL),
-            _ => Err(()) ,
+            _ => Err(()),
         }
     }
 }
 
-impl TestOp{
-    pub fn test(&self, arg1 : i32, arg2: i32) -> bool{
-        match &self{
+impl TestOp {
+    pub fn test(&self, arg1: i32, arg2: i32) -> bool {
+        match &self {
             TestOp::TSTE => arg1 == arg2,
             TestOp::TSTN => arg1 != arg2,
             TestOp::TSTG => arg1 > arg2,
@@ -186,90 +189,88 @@ impl TestOp{
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum FlowOp{
+pub enum FlowOp {
     JUMP,
     TJMP,
     FJMP,
     CALL,
 }
-impl FromStr for FlowOp{
+impl FromStr for FlowOp {
     type Err = ();
-    fn from_str(s: &str) -> Result<FlowOp, ()>{
-        match s{
+    fn from_str(s: &str) -> Result<FlowOp, ()> {
+        match s {
             "JUMP" => Ok(FlowOp::JUMP),
             "TJMP" => Ok(FlowOp::TJMP),
             "FJMP" => Ok(FlowOp::FJMP),
             "CALL" => Ok(FlowOp::CALL),
-            _ => Err(()) ,
+            _ => Err(()),
         }
     }
 }
 
-impl FlowOp{
-    pub fn should_take(&self, arg : i32) -> bool{
-        match &self{
+impl FlowOp {
+    pub fn should_take(&self, arg: i32) -> bool {
+        match &self {
             FlowOp::JUMP => true,
             FlowOp::TJMP => arg != 0,
             FlowOp::FJMP => arg == 0,
             FlowOp::CALL => true,
         }
-
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum OtherOp{
+pub enum OtherOp {
     HALT,
     RET,
 }
-impl FromStr for OtherOp{
+impl FromStr for OtherOp {
     type Err = ();
-    fn from_str(s: &str) -> Result<OtherOp, ()>{
-        match s{
+    fn from_str(s: &str) -> Result<OtherOp, ()> {
+        match s {
             "HALT" => Ok(OtherOp::HALT),
             "RET" => Ok(OtherOp::RET),
-            _ => Err(()) ,
+            _ => Err(()),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum RegOrImm{
+pub enum RegOrImm {
     Reg(Register),
     Val(i32),
 }
 
 // We don't technically need to go with a generic here, but I wanted to expiriment with that
-trait HasValue<U>{
+trait HasValue<U> {
     fn evaluate(self) -> U;
 }
 
-impl HasValue<RegOrImm> for Register{
-    fn evaluate(self) -> RegOrImm{
+impl HasValue<RegOrImm> for Register {
+    fn evaluate(self) -> RegOrImm {
         RegOrImm::Reg(self)
     }
 }
 
-impl HasValue<RegOrImm> for i32{
-    fn evaluate(self) -> RegOrImm{
+impl HasValue<RegOrImm> for i32 {
+    fn evaluate(self) -> RegOrImm {
         RegOrImm::Val(self)
     }
 }
 
-impl RegOrImm{
-
+impl RegOrImm {
     // again, we don't really need this method (because we have from_str), but I wanted to experiment with traits
-    fn from<T : HasValue<RegOrImm>>(x : T) -> RegOrImm{
+    fn from<T: HasValue<RegOrImm>>(x: T) -> RegOrImm {
         x.evaluate()
     }
 
-    fn from_str(s: &str) -> Result<RegOrImm, ()>{
-        if let Ok(reg) = Register::from_str(s){
+    fn from_str(s: &str) -> Result<RegOrImm, ()> {
+        if let Ok(reg) = Register::from_str(s) {
             Ok(RegOrImm::from(reg))
-        }else{
-            if let Ok(x) = s.parse::<i32>(){
+        } else {
+            if let Ok(x) = s.parse::<i32>() {
                 Ok(RegOrImm::from(x))
-            }else{
+            } else {
                 Err(())
             }
         }
@@ -277,133 +278,228 @@ impl RegOrImm{
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Instruction{
-    UnaryArith {op: UnaryArithOp, arg: Register},
-    BinArith {op : BinArithOp, dst: Register, arg1: Register, arg2: RegOrImm},
-    Data {op: DataOp, dst: Register, src: RegOrImm},
-    Stack {op: StackOp, dst: Register},
-    Test {op: TestOp, arg1: Register, arg2: RegOrImm},
-    Flow {op: FlowOp, offset: i32},
-    Other {op: OtherOp},
+pub enum Instruction {
+    UnaryArith {
+        op: UnaryArithOp,
+        arg: Register,
+    },
+    BinArith {
+        op: BinArithOp,
+        dst: Register,
+        arg1: Register,
+        arg2: RegOrImm,
+    },
+    Data {
+        op: DataOp,
+        dst: Register,
+        src: RegOrImm,
+    },
+    Stack {
+        op: StackOp,
+        dst: Register,
+    },
+    Test {
+        op: TestOp,
+        arg1: Register,
+        arg2: RegOrImm,
+    },
+    Flow {
+        op: FlowOp,
+        offset: i32,
+    },
+    Other {
+        op: OtherOp,
+    },
 }
 
-impl Instruction{
-    pub fn to_str(&self) -> String{
-        match &self{
-            Instruction::UnaryArith{op, arg} => format!("{:?} {:?}", op, arg),
-            Instruction::BinArith{op, dst, arg1, arg2} => format!("{:?} {:?} {:?} {:?}", op,  dst, arg1, arg2),
-            Instruction::Data{op, dst, src} => format!("{:?} {:?} {:?}", op, dst, src),
-            Instruction::Stack{op, dst} => format!("{:?} {:?}", op, dst),
-            Instruction::Test{op, arg1, arg2} => format!("{:?} {:?} {:?}", op, arg1, arg2),
-            Instruction::Flow{op, offset} => format!("{:?} {:?}", op, offset),
-            Instruction::Other{op} => format!("{:?}", op)
+impl Instruction {
+    pub fn to_str(&self) -> String {
+        match &self {
+            Instruction::UnaryArith { op, arg } => format!("{:?} {:?}", op, arg),
+            Instruction::BinArith {
+                op,
+                dst,
+                arg1,
+                arg2,
+            } => format!("{:?} {:?} {:?} {:?}", op, dst, arg1, arg2),
+            Instruction::Data { op, dst, src } => format!("{:?} {:?} {:?}", op, dst, src),
+            Instruction::Stack { op, dst } => format!("{:?} {:?}", op, dst),
+            Instruction::Test { op, arg1, arg2 } => format!("{:?} {:?} {:?}", op, arg1, arg2),
+            Instruction::Flow { op, offset } => format!("{:?} {:?}", op, offset),
+            Instruction::Other { op } => format!("{:?}", op),
         }
     }
 
-    pub fn from_str(instruction_str : &str) -> Result<Instruction, ()>{
-        let args : Vec<&str> = instruction_str.split_whitespace().collect();
+    pub fn from_str(instruction_str: &str) -> Result<Instruction, ()> {
+        let args: Vec<&str> = instruction_str.split_whitespace().collect();
         let op = args[0];
 
-        if let Result::Ok(op) = UnaryArithOp::from_str(&op){
+        if let Result::Ok(op) = UnaryArithOp::from_str(&op) {
             assert!(args.len() == 2);
             return Ok(Instruction::UnaryArith {
                 op: op,
                 arg: Register::from_str(args[1]).unwrap(),
-            })
-        } else if let Result::Ok(op) = BinArithOp::from_str(&op){
+            });
+        } else if let Result::Ok(op) = BinArithOp::from_str(&op) {
             assert!(args.len() == 4);
-            return Ok(Instruction::BinArith{
+            return Ok(Instruction::BinArith {
                 op: op,
                 dst: Register::from_str(args[1]).unwrap(),
                 arg1: Register::from_str(args[2]).unwrap(),
                 arg2: RegOrImm::from_str(args[3]).unwrap(),
-            })
-        } else if let Result::Ok(op) = DataOp::from_str(&op){
+            });
+        } else if let Result::Ok(op) = DataOp::from_str(&op) {
             println!("{:?}", args);
             assert!(args.len() == 3);
-            return Ok(Instruction::Data{
+            return Ok(Instruction::Data {
                 op: op,
                 dst: Register::from_str(args[1]).unwrap(),
                 src: RegOrImm::from_str(args[2]).unwrap(),
-            })
-        } else if let Result::Ok(op) = StackOp::from_str(&op){
+            });
+        } else if let Result::Ok(op) = StackOp::from_str(&op) {
             assert!(args.len() == 2);
-            return Ok(Instruction::Stack{
+            return Ok(Instruction::Stack {
                 op: op,
-                dst: Register::from_str(args[1]).unwrap()
-            })
-        } else if let Result::Ok(op) = TestOp::from_str(&op){
+                dst: Register::from_str(args[1]).unwrap(),
+            });
+        } else if let Result::Ok(op) = TestOp::from_str(&op) {
             assert!(args.len() == 3);
-            return Ok(Instruction::Test{
+            return Ok(Instruction::Test {
                 op: op,
                 arg1: Register::from_str(args[1]).unwrap(),
                 arg2: RegOrImm::from_str(args[2]).unwrap(),
-            })
-        } else if let Result::Ok(op) = FlowOp::from_str(&op){
+            });
+        } else if let Result::Ok(op) = FlowOp::from_str(&op) {
             assert!(args.len() == 2);
-            return Ok(Instruction::Flow{
+            return Ok(Instruction::Flow {
                 op: op,
-                offset: args[1].parse::<i32>().unwrap()
-            })
-        } else if let Result::Ok(op) = OtherOp::from_str(&op){
+                offset: args[1].parse::<i32>().unwrap(),
+            });
+        } else if let Result::Ok(op) = OtherOp::from_str(&op) {
             assert!(args.len() == 1);
-            return Ok(Instruction::Other{
-                op: op
-            })
+            return Ok(Instruction::Other { op: op });
         }
         Err(())
     }
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
     #[test]
-    fn neg_from_str(){
-        assert_eq!(Instruction::from_str("NEG R1").unwrap(), Instruction::UnaryArith{op: UnaryArithOp::NEG, arg: Register::R1});
+    fn neg_from_str() {
+        assert_eq!(
+            Instruction::from_str("NEG R1").unwrap(),
+            Instruction::UnaryArith {
+                op: UnaryArithOp::NEG,
+                arg: Register::R1
+            }
+        );
     }
     #[test]
-    fn mul_from_str_reg(){
-        assert_eq!(Instruction::from_str("MUL R1 R1 R2").unwrap(), Instruction::BinArith{op: BinArithOp::MUL, dst: Register::R1, arg1: Register::R1, arg2: RegOrImm::Reg(Register::R2)})
+    fn mul_from_str_reg() {
+        assert_eq!(
+            Instruction::from_str("MUL R1 R1 R2").unwrap(),
+            Instruction::BinArith {
+                op: BinArithOp::MUL,
+                dst: Register::R1,
+                arg1: Register::R1,
+                arg2: RegOrImm::Reg(Register::R2)
+            }
+        )
     }
     #[test]
-    fn mul_from_str_imm(){
-        assert_eq!(Instruction::from_str("MUL R1 R1 3").unwrap(), Instruction::BinArith{op: BinArithOp::MUL, dst: Register::R1, arg1: Register::R1, arg2: RegOrImm::Val(3)})
+    fn mul_from_str_imm() {
+        assert_eq!(
+            Instruction::from_str("MUL R1 R1 3").unwrap(),
+            Instruction::BinArith {
+                op: BinArithOp::MUL,
+                dst: Register::R1,
+                arg1: Register::R1,
+                arg2: RegOrImm::Val(3)
+            }
+        )
     }
     #[test]
-    fn  mov_from_str_reg(){
-        assert_eq!(Instruction::from_str("MOV R1 R2").unwrap(), Instruction::Data{op: DataOp::MOV, dst: Register::R1, src:RegOrImm::Reg(Register::R2)})
+    fn mov_from_str_reg() {
+        assert_eq!(
+            Instruction::from_str("MOV R1 R2").unwrap(),
+            Instruction::Data {
+                op: DataOp::MOV,
+                dst: Register::R1,
+                src: RegOrImm::Reg(Register::R2)
+            }
+        )
     }
     #[test]
-    fn  mov_from_str_imm(){
-        assert_eq!(Instruction::from_str("MOV R1 3").unwrap(), Instruction::Data{op: DataOp::MOV, dst: Register::R1, src:RegOrImm::Val(3)})
+    fn mov_from_str_imm() {
+        assert_eq!(
+            Instruction::from_str("MOV R1 3").unwrap(),
+            Instruction::Data {
+                op: DataOp::MOV,
+                dst: Register::R1,
+                src: RegOrImm::Val(3)
+            }
+        )
     }
     #[test]
-    fn  push_from_str(){
-        assert_eq!(Instruction::from_str("PUSH R1").unwrap(), Instruction::Stack{op: StackOp::PUSH, dst: Register::R1})
+    fn push_from_str() {
+        assert_eq!(
+            Instruction::from_str("PUSH R1").unwrap(),
+            Instruction::Stack {
+                op: StackOp::PUSH,
+                dst: Register::R1
+            }
+        )
     }
     #[test]
-    fn  tstg_from_str_reg(){
-        assert_eq!(Instruction::from_str("TSTG R1 R2").unwrap(), Instruction::Test{op: TestOp::TSTG, arg1:Register::R1, arg2:RegOrImm::Reg(Register::R2)})
+    fn tstg_from_str_reg() {
+        assert_eq!(
+            Instruction::from_str("TSTG R1 R2").unwrap(),
+            Instruction::Test {
+                op: TestOp::TSTG,
+                arg1: Register::R1,
+                arg2: RegOrImm::Reg(Register::R2)
+            }
+        )
     }
     #[test]
-    fn  tstg_from_str_imm(){
-        assert_eq!(Instruction::from_str("TSTG R1 3").unwrap(), Instruction::Test{op: TestOp::TSTG, arg1:Register::R1, arg2:RegOrImm::Val(3)})
+    fn tstg_from_str_imm() {
+        assert_eq!(
+            Instruction::from_str("TSTG R1 3").unwrap(),
+            Instruction::Test {
+                op: TestOp::TSTG,
+                arg1: Register::R1,
+                arg2: RegOrImm::Val(3)
+            }
+        )
     }
     #[test]
-    fn  tjmp_from_str(){
-        assert_eq!(Instruction::from_str("TJMP 10").unwrap(), Instruction::Flow{op: FlowOp::TJMP, offset: 10})
+    fn tjmp_from_str() {
+        assert_eq!(
+            Instruction::from_str("TJMP 10").unwrap(),
+            Instruction::Flow {
+                op: FlowOp::TJMP,
+                offset: 10
+            }
+        )
     }
     #[test]
-    fn  halt_from_str(){
-        assert_eq!(Instruction::from_str("HALT").unwrap(), Instruction::Other{op: OtherOp::HALT})
+    fn halt_from_str() {
+        assert_eq!(
+            Instruction::from_str("HALT").unwrap(),
+            Instruction::Other { op: OtherOp::HALT }
+        )
     }
     #[test]
-    fn  ret_from_str(){
-        assert_eq!(Instruction::from_str("RET").unwrap(), Instruction::Other{op: OtherOp::RET})
+    fn ret_from_str() {
+        assert_eq!(
+            Instruction::from_str("RET").unwrap(),
+            Instruction::Other { op: OtherOp::RET }
+        )
     }
     #[test]
-    fn  reg_to_str(){
+    fn reg_to_str() {
         assert_eq!(Register::R1.to_str(), "R1");
         assert_eq!(Register::R2.to_str(), "R2");
     }

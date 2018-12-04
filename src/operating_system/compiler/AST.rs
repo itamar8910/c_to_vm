@@ -26,8 +26,8 @@ pub struct RootAstNode {
 impl RootAstNode {
     fn from(node: &JsonNode) -> Result<RootAstNode, AstError> {
         let mut externals = Vec::new();
-        for extNode in node["ext"].as_array().unwrap().iter() {
-            externals.push(External::from(extNode)?);
+        for ext_node in node["ext"].as_array().unwrap().iter() {
+            externals.push(External::from(ext_node)?);
         }
         Ok(RootAstNode {
             externals: externals,
@@ -45,8 +45,7 @@ impl External {
             "FuncDef" => Ok(External::FuncDef(FuncDef::from(&node)?)),
             _ => {
                 panic!("Invalid external");
-                Err(())
-                },
+            }
         }
     }
 }
@@ -66,15 +65,15 @@ impl FuncDef {
 
 pub struct FuncDecl {
     pub name: String,
-    pub argsType: Vec<String>,
-    pub retType: String,
+    pub args_type: Vec<String>,
+    pub ret_type: String,
 }
 impl FuncDecl {
     fn from(node: &JsonNode) -> Result<FuncDecl, AstError> {
         Ok(FuncDecl {
             name: node["name"].as_str().unwrap().to_string(),
-            argsType: vec!["int".to_string()],
-            retType: "int".to_string(),
+            args_type: vec!["int".to_string()],
+            ret_type: "int".to_string(),
         })
     }
 }
@@ -86,16 +85,16 @@ pub struct Compound {
 impl Compound {
     fn from(node: &JsonNode) -> Result<Compound, AstError> {
         let mut statements = Vec::new();
-        match node["block_items"]{
+        match node["block_items"] {
             JsonNode::Null => {
                 statements.push(Statement::from(&node)?);
-            },
+            }
             _ => {
-                for statementNode in node["block_items"].as_array().unwrap().iter() {
-                    statements.push(Statement::from(&statementNode)?);
+                for statement_node in node["block_items"].as_array().unwrap().iter() {
+                    statements.push(Statement::from(&statement_node)?);
                 }
             }
-        } 
+        }
         Ok(Compound { items: statements })
     }
 }
@@ -119,7 +118,7 @@ impl Statement {
                 Ok(Statement::Expression(Expression::from(&node)?))
                 // panic!("Invalid statement type: {}", node["_nodetype"].as_str().unwrap());
                 // Err(())
-                },
+            }
         }
     }
 }
@@ -165,7 +164,7 @@ pub enum Expression {
     UnaryOp(UnaryOp),
     ID(ID),
     Assignment(Assignment),
-    TernaryOp(TernaryOp)
+    TernaryOp(TernaryOp),
 }
 
 impl Expression {
@@ -203,7 +202,7 @@ impl Constant {
 }
 
 pub struct BinaryOp {
-    pub opType: BinaryOpType,
+    pub op_type: BinaryopType,
     pub left: Box<Expression>,
     pub right: Box<Expression>,
 }
@@ -212,9 +211,9 @@ impl BinaryOp {
     fn from(node: &JsonNode) -> Result<BinaryOp, AstError> {
         let left = Box::new(Expression::from(&node["left"])?);
         let right = Box::new(Expression::from(&node["right"])?);
-        let opType = BinaryOpType::from(&node["op"])?;
+        let op_type = BinaryopType::from(&node["op"])?;
         Ok(BinaryOp {
-            opType: opType,
+            op_type: op_type,
             left: left,
             right: right,
         })
@@ -222,7 +221,7 @@ impl BinaryOp {
 }
 
 #[derive(PartialEq, Debug)]
-pub enum BinaryOpType {
+pub enum BinaryopType {
     // arithmetical
     ADD,
     SUB,
@@ -237,87 +236,86 @@ pub enum BinaryOpType {
     // boolean
     EQ,
     NEQ,
-    LOGICAL_AND,
-    LOGICAL_OR,
+    LogicalAnd,
+    LogicalOr,
     LT,
     LTEQ,
     GT,
     GTEQ,
 }
 
-impl BinaryOpType {
-    fn _from(s: &str) -> Result<BinaryOpType, AstError> {
-        println!("BinaryOpType from:{}", s);
+impl BinaryopType {
+    fn _from(s: &str) -> Result<BinaryopType, AstError> {
+        println!("BinaryopType from:{}", s);
         match s {
-            "+" => Ok(BinaryOpType::ADD),
-            "-" => Ok(BinaryOpType::SUB),
-            "*" => Ok(BinaryOpType::MUL),
-            "/" => Ok(BinaryOpType::DIV),
-            "%" => Ok(BinaryOpType::MOD),
-            "&" => Ok(BinaryOpType::AND),
-            "|" => Ok(BinaryOpType::OR),
-            "<<" => Ok(BinaryOpType::SHL),
-            ">>" => Ok(BinaryOpType::SHR),
-            "^" => Ok(BinaryOpType::XOR),
-            "==" => Ok(BinaryOpType::EQ),
-            "!=" => Ok(BinaryOpType::NEQ),
-            "&&" => Ok(BinaryOpType::LOGICAL_AND),
-            "||" => Ok(BinaryOpType::LOGICAL_OR),
-            "<" => Ok(BinaryOpType::LT),
-            "<=" => Ok(BinaryOpType::LTEQ),
-            ">" => Ok(BinaryOpType::GT),
-            ">=" => Ok(BinaryOpType::GTEQ),
+            "+" => Ok(BinaryopType::ADD),
+            "-" => Ok(BinaryopType::SUB),
+            "*" => Ok(BinaryopType::MUL),
+            "/" => Ok(BinaryopType::DIV),
+            "%" => Ok(BinaryopType::MOD),
+            "&" => Ok(BinaryopType::AND),
+            "|" => Ok(BinaryopType::OR),
+            "<<" => Ok(BinaryopType::SHL),
+            ">>" => Ok(BinaryopType::SHR),
+            "^" => Ok(BinaryopType::XOR),
+            "==" => Ok(BinaryopType::EQ),
+            "!=" => Ok(BinaryopType::NEQ),
+            "&&" => Ok(BinaryopType::LogicalAnd),
+            "||" => Ok(BinaryopType::LogicalOr),
+            "<" => Ok(BinaryopType::LT),
+            "<=" => Ok(BinaryopType::LTEQ),
+            ">" => Ok(BinaryopType::GT),
+            ">=" => Ok(BinaryopType::GTEQ),
             _ => {
-                println!("BinaryOpType from returning Err");
+                println!("BinaryopType from returning Err");
                 Err(())
             }
         }
     }
-    fn from(node: &JsonNode) -> Result<BinaryOpType, AstError> {
-        BinaryOpType::_from(&node.as_str().unwrap())
+    fn from(node: &JsonNode) -> Result<BinaryopType, AstError> {
+        BinaryopType::_from(&node.as_str().unwrap())
     }
     pub fn to_op(&self) -> Option<String> {
         match &self {
-            BinaryOpType::ADD => Some("ADD".to_string()),
-            BinaryOpType::SUB => Some("SUB".to_string()),
-            BinaryOpType::MUL => Some("MUL".to_string()),
-            BinaryOpType::DIV => Some("DIV".to_string()),
-            BinaryOpType::MOD => Some("MOD".to_string()),
-            BinaryOpType::AND => Some("AND".to_string()),
-            BinaryOpType::OR => Some("OR".to_string()),
-            BinaryOpType::SHL => Some("SHL".to_string()),
-            BinaryOpType::SHR => Some("SHR".to_string()),
-            BinaryOpType::XOR => Some("XOR".to_string()),
+            BinaryopType::ADD => Some("ADD".to_string()),
+            BinaryopType::SUB => Some("SUB".to_string()),
+            BinaryopType::MUL => Some("MUL".to_string()),
+            BinaryopType::DIV => Some("DIV".to_string()),
+            BinaryopType::MOD => Some("MOD".to_string()),
+            BinaryopType::AND => Some("AND".to_string()),
+            BinaryopType::OR => Some("OR".to_string()),
+            BinaryopType::SHL => Some("SHL".to_string()),
+            BinaryopType::SHR => Some("SHR".to_string()),
+            BinaryopType::XOR => Some("XOR".to_string()),
             _ => None,
         }
     }
 }
 
 pub struct UnaryOp {
-    pub opType: UnaryOpType,
+    pub op_type: UnaryopType,
     pub expr: Box<Expression>,
 }
 
 impl UnaryOp {
     fn from(node: &JsonNode) -> Result<UnaryOp, AstError> {
         let expr = Box::new(Expression::from(&node["expr"])?);
-        let opType = UnaryOpType::from(&node["op"])?;
+        let op_type = UnaryopType::from(&node["op"])?;
         Ok(UnaryOp {
-            opType: opType,
+            op_type: op_type,
             expr: expr,
         })
     }
 }
 
 #[derive(PartialEq, Debug)]
-pub enum UnaryOpType {
+pub enum UnaryopType {
     NEG,
     NOT,
     XPP, // x++
     PPX, // ++x
     XMM, // x--
     MMX, // --x
-
 }
 
 pub struct ID {
@@ -332,19 +330,18 @@ impl ID {
     }
 }
 
-impl UnaryOpType {
-    fn from(node: &JsonNode) -> Result<UnaryOpType, AstError> {
-        println!("UnaryOpType from:{}", node.as_str().unwrap());
+impl UnaryopType {
+    fn from(node: &JsonNode) -> Result<UnaryopType, AstError> {
+        println!("UnaryopType from:{}", node.as_str().unwrap());
         match node.as_str().unwrap() {
-            "!" => Ok(UnaryOpType::NOT),
-            "-" => Ok(UnaryOpType::NEG),
-            "p++" => Ok(UnaryOpType::XPP),
-            "++" => Ok(UnaryOpType::PPX),
-            "p--" => Ok(UnaryOpType::XMM),
-            "--" => Ok(UnaryOpType::MMX),
+            "!" => Ok(UnaryopType::NOT),
+            "-" => Ok(UnaryopType::NEG),
+            "p++" => Ok(UnaryopType::XPP),
+            "++" => Ok(UnaryopType::PPX),
+            "p--" => Ok(UnaryopType::XMM),
+            "--" => Ok(UnaryopType::MMX),
             _ => {
                 panic!("Unkown Unary type:{}", node.as_str().unwrap());
-                Err(())
             }
         }
     }
@@ -370,7 +367,7 @@ impl Assignment {
 }
 
 pub struct AssignmentOp {
-    pub op: Option<BinaryOpType>, // e.g for += assignment, this will be PLUS
+    pub op: Option<BinaryopType>, // e.g for += assignment, this will be PLUS
 }
 
 impl AssignmentOp {
@@ -380,10 +377,13 @@ impl AssignmentOp {
             1 => Ok(AssignmentOp { op: None }),
             2 | 3 => {
                 // let op_char = op_str.chars().next().unwrap();
-                let eq_index = op_str.as_str().find('=').expect("no = sign in assignment with op");
-                let op_part : String = op_str.chars().take(eq_index).collect();
+                let eq_index = op_str
+                    .as_str()
+                    .find('=')
+                    .expect("no = sign in assignment with op");
+                let op_part: String = op_str.chars().take(eq_index).collect();
                 Ok(AssignmentOp {
-                    op: Some(BinaryOpType::_from(&op_part.as_str())?),
+                    op: Some(BinaryopType::_from(&op_part.as_str())?),
                 })
             }
             _ => panic!("invalid assignment op string:{}", op_str),
@@ -391,7 +391,7 @@ impl AssignmentOp {
     }
 }
 
-pub struct If{
+pub struct If {
     pub cond: Expression,
     pub iftrue: Box<Compound>,
     pub iffalse: Option<Box<Compound>>,
@@ -399,12 +399,12 @@ pub struct If{
 
 impl If {
     fn from(node: &JsonNode) -> Result<If, AstError> {
-        let iffalse = match &node["iffalse"]{
+        let iffalse = match &node["iffalse"] {
             JsonNode::Object(_) => Some(Box::new(Compound::from(&node["iffalse"])?)),
             JsonNode::Null => None,
-            _ => panic!("invalid type for else node")
+            _ => panic!("invalid type for else node"),
         };
-        Ok(If{
+        Ok(If {
             cond: Expression::from(&node["cond"])?,
             iftrue: Box::new(Compound::from(&node["iftrue"])?),
             iffalse: iffalse,
@@ -412,14 +412,14 @@ impl If {
     }
 }
 
-pub struct TernaryOp{
+pub struct TernaryOp {
     pub cond: Box<Expression>,
     pub iftrue: Box<Expression>,
     pub iffalse: Box<Expression>,
 }
 impl TernaryOp {
     fn from(node: &JsonNode) -> Result<TernaryOp, AstError> {
-        Ok(TernaryOp{
+        Ok(TernaryOp {
             cond: Box::new(Expression::from(&node["cond"])?),
             iftrue: Box::new(Expression::from(&node["iftrue"])?),
             iffalse: Box::new(Expression::from(&node["iffalse"])?),
@@ -452,7 +452,7 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.retType, "int");
+                assert_eq!(func_def.decl.ret_type, "int");
                 match &func_def.body.items[0] {
                     Statement::Return(ret) => match &ret.expr {
                         Expression::Constant(c) => {
@@ -475,11 +475,11 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.retType, "int");
+                assert_eq!(func_def.decl.ret_type, "int");
                 match &func_def.body.items[0] {
                     Statement::Return(ret) => match &ret.expr {
                         Expression::BinaryOp(bop) => {
-                            assert_eq!(bop.opType, BinaryOpType::ADD);
+                            assert_eq!(bop.op_type, BinaryopType::ADD);
                             let left = &*bop.left;
                             if let Expression::Constant(left) = left {
 
@@ -502,7 +502,7 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.retType, "int");
+                assert_eq!(func_def.decl.ret_type, "int");
                 match &func_def.body.items[0] {
                     Statement::Decl(decl) => {
                         assert_eq!(decl.name, "a");
@@ -527,23 +527,23 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.retType, "int");
+                assert_eq!(func_def.decl.ret_type, "int");
                 match &func_def.body.items[2] {
                     Statement::If(if_stmt) => {
-                        if let Expression::ID(id) = &if_stmt.cond{
+                        if let Expression::ID(id) = &if_stmt.cond {
                             assert_eq!(id.name, "a");
-                        } else{
+                        } else {
                             panic!();
                         }
                         let iftrue = &**&if_stmt.iftrue; // unbox statement
                         let iftrue = &iftrue.items[0];
-                        if let Statement::Assignment(ass) = iftrue{
-                        }else{
+                        if let Statement::Assignment(ass) = iftrue {
+                        } else {
                             panic!();
                         }
-                        match &if_stmt.iffalse{
-                            None => {},
-                            _ => panic!()
+                        match &if_stmt.iffalse {
+                            None => {}
+                            _ => panic!(),
                         }
                     }
                     _ => panic!(),
@@ -559,29 +559,29 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.retType, "int");
+                assert_eq!(func_def.decl.ret_type, "int");
                 match &func_def.body.items[1] {
                     Statement::If(if_stmt) => {
-                        if let Expression::BinaryOp(bop) = &if_stmt.cond{
-                            match bop.opType{
-                                BinaryOpType::GT => {},
-                                _ => panic!()
+                        if let Expression::BinaryOp(bop) = &if_stmt.cond {
+                            match bop.op_type {
+                                BinaryopType::GT => {}
+                                _ => panic!(),
                             }
-                        } else{
+                        } else {
                             panic!();
                         }
                         let iftrue = &*if_stmt.iftrue; // unbox statement, then get reference to unboxed value
-                        if let Statement::Assignment(ass) = &iftrue.items[0]{
-                        }else{
+                        if let Statement::Assignment(ass) = &iftrue.items[0] {
+                        } else {
                             panic!();
                         }
-                        if let Statement::Assignment(ass) = &iftrue.items[1]{
-                        }else{
+                        if let Statement::Assignment(ass) = &iftrue.items[1] {
+                        } else {
                             panic!();
                         }
-                        match &if_stmt.iffalse{
-                            None => {},
-                            _ => panic!()
+                        match &if_stmt.iffalse {
+                            None => {}
+                            _ => panic!(),
                         }
                     }
                     _ => panic!(),
@@ -597,17 +597,17 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.retType, "int");
+                assert_eq!(func_def.decl.ret_type, "int");
                 match &func_def.body.items[1] {
                     Statement::Return(ret) => {
-                        if let Expression::TernaryOp(top) = &ret.expr{
-                            if let Expression::BinaryOp(ref bop) = **&top.cond{
-                                match bop.opType{
-                                    BinaryOpType::GT => {},
+                        if let Expression::TernaryOp(top) = &ret.expr {
+                            if let Expression::BinaryOp(ref bop) = **&top.cond {
+                                match bop.op_type {
+                                    BinaryopType::GT => {}
                                     _ => panic!(),
                                 }
                             }
-                        } else{
+                        } else {
                             panic!();
                         }
                     }

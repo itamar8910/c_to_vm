@@ -1,11 +1,10 @@
 pub mod assembler;
 pub mod compiler;
 
-use ::cpu::instructions::*;
-use ::cpu::Cpu;
-use ::cpu::MemEntry;
 use self::assembler::assemble;
-
+use cpu::instructions::*;
+use cpu::Cpu;
+use cpu::MemEntry;
 
 /*
 Memory layout:
@@ -52,63 +51,74 @@ Returning from the function:
                 jump to returna addr
 */
 
-const PROGRAM_INIT_ADDRESS :u32 = 1000;
-const INIT_SP_ADDRESS :u32 = 9999;
+const PROGRAM_INIT_ADDRESS: u32 = 1000;
+const INIT_SP_ADDRESS: u32 = 9999;
 
-pub struct OS{
+pub struct OS {
     pub cpu: Cpu,
 }
 
-impl OS{
-    pub fn new() -> OS{
-        let mut instance = OS{cpu: Cpu::new()};
+impl OS {
+    pub fn new() -> OS {
+        let mut instance = OS { cpu: Cpu::new() };
         instance.initialize_memory();
         instance
-
     }
 
-    fn initialize_memory(&mut self){
-        self.cpu.mem.set(0, MemEntry::instruction(Instruction::from_str("HALT").unwrap()));
+    fn initialize_memory(&mut self) {
+        self.cpu.mem.set(
+            0,
+            MemEntry::Instruction(Instruction::from_str("HALT").unwrap()),
+        );
     }
 
-   fn reset_cpu_state(&mut self){
-       self.cpu = Cpu::new();
-       self.initialize_memory();
+    fn reset_cpu_state(&mut self) {
+        self.cpu = Cpu::new();
+        self.initialize_memory();
     }
 
-    fn initialize_stackframe(&mut self){
-        self.cpu.regs.set(&Register::SP, (INIT_SP_ADDRESS - 3) as i32);
-        self.cpu.regs.set(&Register::BP, (INIT_SP_ADDRESS -2) as i32);
+    fn initialize_stackframe(&mut self) {
+        self.cpu
+            .regs
+            .set(&Register::SP, (INIT_SP_ADDRESS - 3) as i32);
+        self.cpu
+            .regs
+            .set(&Register::BP, (INIT_SP_ADDRESS - 2) as i32);
 
-        self.cpu.mem.set(INIT_SP_ADDRESS - 1, MemEntry::num(0));  // jump to HALT in the end
-        self.cpu.mem.set(INIT_SP_ADDRESS - 2, MemEntry::num((INIT_SP_ADDRESS - 2) as i32)); // no prev BP, BP points to itself
-        self.cpu.mem.set(INIT_SP_ADDRESS, MemEntry::num(-1));  // deafult return value = -1
+        self.cpu.mem.set(INIT_SP_ADDRESS - 1, MemEntry::Num(0)); // jump to HALT in the end
+        self.cpu.mem.set(
+            INIT_SP_ADDRESS - 2,
+            MemEntry::Num((INIT_SP_ADDRESS - 2) as i32),
+        ); // no prev BP, BP points to itself
+        self.cpu.mem.set(INIT_SP_ADDRESS, MemEntry::Num(-1)); // deafult return value = -1
     }
 
-    fn load_program(&mut self, instructions : Vec<Instruction>, init_addr : u32){
-        for (instr_i, instr) in instructions.iter().enumerate(){
-            self.cpu.mem.set(init_addr + (instr_i as u32), MemEntry::instruction(instr.clone()));
+    fn load_program(&mut self, instructions: Vec<Instruction>, init_addr: u32) {
+        for (instr_i, instr) in instructions.iter().enumerate() {
+            self.cpu.mem.set(
+                init_addr + (instr_i as u32),
+                MemEntry::Instruction(instr.clone()),
+            );
         }
     }
 
     // runs given program
     // returns program's exit value
-    pub fn run_program(&mut self, instructions: Vec<Instruction>) -> i32{
+    pub fn run_program(&mut self, instructions: Vec<Instruction>) -> i32 {
         self.reset_cpu_state();
         self.load_program(instructions, PROGRAM_INIT_ADDRESS);
-        self.cpu.regs.set(&Register::IR, PROGRAM_INIT_ADDRESS as i32);
+        self.cpu
+            .regs
+            .set(&Register::IR, PROGRAM_INIT_ADDRESS as i32);
         self.initialize_stackframe();
         self.cpu.start();
 
         let bp = self.cpu.regs.get(&Register::BP);
         self.cpu.mem.get_num((bp + 2) as u32)
-
     }
 
-
-    pub fn assemble_and_run(&mut self, program: &str) -> i32{
+    pub fn assemble_and_run(&mut self, program: &str) -> i32 {
         let (instructions, _) = assemble(program);
         self.run_program(instructions)
     }
-
 }

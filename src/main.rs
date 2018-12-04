@@ -1,12 +1,12 @@
 mod cpu;
 mod operating_system;
 
-use std::env;
 use operating_system::compiler::Compiler;
 use operating_system::OS;
+use std::env;
 
 fn main() {
-    let args : Vec<String> = env::args().collect();
+    let args: Vec<String> = env::args().collect();
     println!("compiling: {}", args[1]);
     let program = Compiler::compile(&args[1]);
     println!("finished compiling");
