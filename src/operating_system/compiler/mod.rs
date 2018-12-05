@@ -13,6 +13,7 @@ struct VariableData {
     varType: String,
     offset: u32,
     size: u32,
+    declared: bool,
 }
 
 struct FuncData {
@@ -20,6 +21,7 @@ struct FuncData {
     regs_used: Vec<Register>,
     returnType: String,
 }
+
 struct ScopeData {
     name: String,
     parent_scope: String,
@@ -204,7 +206,7 @@ impl Compiler {
         // TODO: support looking form variables defined in ancestor scopes
         if let Some(scope) = self.scope_to_data.get(scope) {
             if let ScopeLike::Func(func) = scope {
-                let var = func.scope_data.variables.get(var_name).unwrap();
+                let var = func.scope_data.variables.get(var_name).expect(&format!("variable:{} does not exist in scope:{}", var_name, func.scope_data.name));
                 let offset = var.offset;
                 let var_offset_from_bp = -((1 + func.regs_used.len() as u32 + offset) as i32);
                 code.push(format!("ADD R1 BP {}", var_offset_from_bp));
@@ -288,6 +290,7 @@ impl Compiler {
                         code.push(format!("JUMP _{}_END", scope));
                     }
                     Statement::Decl(decl) => {
+                        // self.update_var_declared(&decl.name);
                         if let Some(expr) = &decl.init {
                             // if decleration is also initialization
                             self.load_addr_of(&decl.name, &scope, code);
@@ -330,6 +333,31 @@ impl Compiler {
         }
     }
 
+    fn find_variable(&mut self, var_name: &String, scope: &String) -> Option<&mut VariableData>{
+        let mut cur_scope_name = scope;
+        loop{
+            let cur_scope = self.scope_to_data.get_mut(cur_scope_name.clone().as_str()).expect("scope doesn't exist");
+            let mut scope_data = match cur_scope{
+                ScopeLike::Func(func_data) => & func_data.scope_data,
+                ScopeLike::Scope(s) => {
+                    s
+                   },
+            };
+            if let Some(x) = scope_data.variables.get_mut(var_name.as_str()){
+                return Some(x);
+            }else{
+                cur_scope_name = &(scope_data.parent_scope);
+                if cur_scope_name == ""{
+                    return None
+                }
+            }
+        }
+    }
+
+    // fn update_var_declared(&mut self, var_name: &String){
+    //     let x = self.scope_to_data.get(&var_name).expect("Variable doesn'te exist")
+    // }
+
     // fn get_var_type_and_size(&self, node: &Node) -> (String, u32){
     //     (String::from("int"), 1) // TODO generalize
     // }
@@ -357,6 +385,7 @@ impl Compiler {
                         varType: var_type.clone(),
                         offset: next_var_offset,
                         size: var_size,
+                        declared: false,
                     },
                 );
                 next_var_offset += var_size;
