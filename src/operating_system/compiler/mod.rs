@@ -338,18 +338,18 @@ impl Compiler {
         loop{
             let cur_scope = self.scope_to_data.get_mut(cur_scope_name.clone().as_str()).expect("scope doesn't exist");
             let mut scope_data = match cur_scope{
-                ScopeLike::Func(func_data) => & func_data.scope_data,
+                ScopeLike::Func(func_data) => &mut func_data.scope_data,
                 ScopeLike::Scope(s) => {
-                    s
+                    & mut *s
                    },
             };
             if let Some(x) = scope_data.variables.get_mut(var_name.as_str()){
                 return Some(x);
             }else{
-                cur_scope_name = &(scope_data.parent_scope);
-                if cur_scope_name == ""{
+                if scope == ""{
                     return None
                 }
+                cur_scope_name = &(scope_data.parent_scope);
             }
         }
     }
