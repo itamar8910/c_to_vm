@@ -9,6 +9,7 @@ use std::collections::HashSet;
 // typedef ast Node = JSON value
 use self::serde_json::Value as Node;
 
+#[derive(Debug)]
 struct VariableData {
     name: String,
     varType: String,
@@ -16,12 +17,14 @@ struct VariableData {
     size: u32,
 }
 
+#[derive(Debug)]
 struct FuncData {
     scope_data: ScopeData,
     regs_used: Vec<Register>,
     returnType: String,
 }
 
+#[derive(Debug)]
 struct ScopeData {
     name: String,
     parent_scope: String,
@@ -30,6 +33,7 @@ struct ScopeData {
 }
 
 // a scope-like object, i.e either a function or a regular scope
+#[derive(Debug)]
 enum ScopeLike {
     Func(FuncData),
     Scope(ScopeData),
@@ -337,17 +341,18 @@ impl Compiler {
     fn find_variable(&self, var_name: &String, scope: &String) -> Option<&VariableData>{
         let mut cur_scope_name = scope;
         loop{
-            let cur_scope = self.scope_to_data.get(cur_scope_name.clone().as_str()).expect("scope doesn't exist");
+            println!("seraching for var {} inside scope {}", var_name, cur_scope_name);
+            let cur_scope = self.scope_to_data.get(cur_scope_name.as_str()).expect(&format!("scope:{} doesn't exist", cur_scope_name));
             let scope_data = match cur_scope{
-                ScopeLike::Func(func_data) => & func_data.scope_data,
+                ScopeLike::Func(func_data) => &func_data.scope_data,
                 ScopeLike::Scope(s) => {
-                    & *s
+                     s
                    },
             };
             if let Some(x) = scope_data.variables.get(var_name.as_str()){
                 return Some(x);
             }else{
-                if scope == ""{
+                if cur_scope_name == "_GLOBAL"{
                     return None
                 }
                 cur_scope_name = &(scope_data.parent_scope);
@@ -420,15 +425,19 @@ impl Compiler {
     fn _compile(&mut self, path_to_c_source: &str) -> Vec<String> {
         let mut code: Vec<String> = Vec::new();
         let ast = AST::get_ast(path_to_c_source);
-        // println!("{}", ast);
 
-        // assuming only main func
+        self.scope_to_data.insert("_GLOBAL".to_string(), ScopeLike::Scope(ScopeData {
+            name: "_GLOBAL".to_string(),
+            parent_scope: "_GLOBAL".to_string(),
+            variables: HashMap::new(),
+            declared_variables: HashSet::new(),
+        }));
         let External::FuncDef(main_func) = &ast.externals[0];
         let main_decl = &main_func.decl;
         assert_eq!(main_decl.name, "main".to_string());
         assert_eq!(main_decl.ret_type, "int".to_string());
 
-        self.code_gen(AstNode::FuncDef(&main_func), &"".to_string(), &mut code);
+        self.code_gen(AstNode::FuncDef(&main_func), &"_GLOBAL".to_string(), &mut code);
 
         code
     }
@@ -440,12 +449,16 @@ impl Compiler {
     }
 }
 
-// #[cfg(test)]
-// mod tests{
-//     use super::*;
-//     #[test]
-//     fn empty_main(){
-//         let code = Compiler::compile("src/operating_system/compiler/test_data/const_expressions/inputs/1.c");
-//         print!("{:?}", code);
-//     }
-// }
+#[cfg(test)]
+mod tests{
+    use super::*;
+    #[test]
+    fn find_variable(){
+        let mut compiler = Compiler::new();
+        compiler._compile("tests/compiler_test_data/variables/inputs/assign.c");
+        println!("{:?}", compiler.scope_to_data);
+        let a_var = compiler.find_variable(&"a".to_string(), &"main".to_string()).unwrap();
+        let b_var = compiler.find_variable(&"b".to_string(), &"main".to_string());
+        assert!(b_var.is_none());
+    }
+}
