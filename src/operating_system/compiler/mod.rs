@@ -4,6 +4,7 @@ mod AST;
 use self::AST::*;
 use cpu::instructions::Register;
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 // typedef ast Node = JSON value
 use self::serde_json::Value as Node;
@@ -13,7 +14,6 @@ struct VariableData {
     varType: String,
     offset: u32,
     size: u32,
-    declared: bool,
 }
 
 struct FuncData {
@@ -26,6 +26,7 @@ struct ScopeData {
     name: String,
     parent_scope: String,
     variables: HashMap<String, VariableData>,
+    declared_variables: HashSet<String>,
 }
 
 // a scope-like object, i.e either a function or a regular scope
@@ -333,17 +334,17 @@ impl Compiler {
         }
     }
 
-    fn find_variable(&mut self, var_name: &String, scope: &String) -> Option<&mut VariableData>{
+    fn find_variable(&self, var_name: &String, scope: &String) -> Option<&VariableData>{
         let mut cur_scope_name = scope;
         loop{
-            let cur_scope = self.scope_to_data.get_mut(cur_scope_name.clone().as_str()).expect("scope doesn't exist");
-            let mut scope_data = match cur_scope{
-                ScopeLike::Func(func_data) => &mut func_data.scope_data,
+            let cur_scope = self.scope_to_data.get(cur_scope_name.clone().as_str()).expect("scope doesn't exist");
+            let scope_data = match cur_scope{
+                ScopeLike::Func(func_data) => & func_data.scope_data,
                 ScopeLike::Scope(s) => {
-                    & mut *s
+                    & *s
                    },
             };
-            if let Some(x) = scope_data.variables.get_mut(var_name.as_str()){
+            if let Some(x) = scope_data.variables.get(var_name.as_str()){
                 return Some(x);
             }else{
                 if scope == ""{
@@ -385,7 +386,6 @@ impl Compiler {
                         varType: var_type.clone(),
                         offset: next_var_offset,
                         size: var_size,
-                        declared: false,
                     },
                 );
                 next_var_offset += var_size;
@@ -398,6 +398,7 @@ impl Compiler {
             name: func_name.clone(),
             parent_scope: parent_scope.clone(),
             variables: variables,
+            declared_variables: HashSet::new(),
         };
         let func_data = FuncData {
             scope_data: scope_data,
