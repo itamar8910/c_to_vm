@@ -19,7 +19,7 @@ struct VariableData {
 
 #[derive(Debug)]
 struct FuncData {
-    scope_data: ScopeData,
+    name: String,
     regs_used: Vec<Register>,
     returnType: String,
 }
@@ -28,19 +28,15 @@ struct FuncData {
 struct ScopeData {
     name: String,
     parent_scope: String,
+    parent_func: String,
     variables: HashMap<String, VariableData>,
     declared_variables: HashSet<String>,
 }
 
-// a scope-like object, i.e either a function or a regular scope
-#[derive(Debug)]
-enum ScopeLike {
-    Func(FuncData),
-    Scope(ScopeData),
-}
 
 pub struct Compiler {
-    scope_to_data: HashMap<String, ScopeLike>,
+    scope_to_data: HashMap<String, ScopeData>,
+    func_to_data: HashMap<String, FuncData>,
     tmp_label_count: u32,
 }
 
@@ -48,8 +44,17 @@ impl Compiler {
     pub fn new() -> Compiler {
         Compiler {
             scope_to_data: HashMap::new(),
+            func_to_data: HashMap::new(),
             tmp_label_count: 0,
         }
+    }
+
+    fn get_scope_data(&self, scope: &String) -> Option<& ScopeData>{
+        self.scope_to_data.get(scope)
+    }
+
+    fn get_scope_data_mut(&mut self, scope: &String) -> Option<&mut ScopeData>{
+        self.scope_to_data.get_mut(scope)
     }
 
     fn right_gen(&mut self, node: &Expression, scope: &String, code: &mut Vec<String>) {
@@ -166,7 +171,7 @@ impl Compiler {
             }
             Expression::ID(id) => {
                 let var_name = &id.name;
-                self.load_addr_of(&var_name, &scope, code);
+                self.codegen_load_addr_of_var(&var_name, &scope, code);
                 code.push("LOAD R1 R1".to_string());
             }
             Expression::Assignment(ass) => {
@@ -206,21 +211,13 @@ impl Compiler {
         code.push("STR R2 R1".to_string());
     }
 
-    fn load_addr_of(&mut self, var_name: &String, scope: &String, code: &mut Vec<String>) {
-        // TODO: support non-function scopes
-        // TODO: support looking form variables defined in ancestor scopes
-        if let Some(scope) = self.scope_to_data.get(scope) {
-            if let ScopeLike::Func(func) = scope {
-                let var = func.scope_data.variables.get(var_name).expect(&format!("variable:{} does not exist in scope:{}", var_name, func.scope_data.name));
-                let offset = var.offset;
-                let var_offset_from_bp = -((1 + func.regs_used.len() as u32 + offset) as i32);
-                code.push(format!("ADD R1 BP {}", var_offset_from_bp));
-            } else {
-                panic!("currently only function scopes are supported");
-            }
-        } else {
-            panic!("Invalid scope");
-        }
+
+    fn codegen_load_addr_of_var(&mut self, var_name: &String, scope: &String, code: &mut Vec<String>) {
+        let var_data = self.find_variable(var_name, scope).expect(&format!("Variable {} not found", var_name));
+        let scope_data = self.get_scope_data(scope).expect("Scope doesn't exist");
+        let func_data = self.get_func_data(& scope_data.parent_func).unwrap();
+        let var_offset_from_bp = -((1 + func_data.regs_used.len() as u32 + var_data.offset) as i32);
+        code.push(format!("ADD R1 BP {}", var_offset_from_bp));
     }
 
     // after executing the generated code, evaluate daddress is stored in R1
@@ -228,7 +225,7 @@ impl Compiler {
         match node {
             Expression::ID(id) => {
                 let var_name = &id.name;
-                self.load_addr_of(&var_name, &scope, code);
+                self.codegen_load_addr_of_var(&var_name, &scope, code);
             }
             _ => panic!("not yet supported as an lvalue"),
         }
@@ -245,7 +242,7 @@ impl Compiler {
                 self.regiser_function(func_def, scope);
                 {
                     // NLL workaround
-                    let func_data = self.get_func_data(&func_name);
+                    let func_data = self.get_func_data(func_name).unwrap();
                     println!("regs used:{:?}", func_data.regs_used);
                     // save registers
                     for reg in func_data.regs_used.iter() {
@@ -253,7 +250,8 @@ impl Compiler {
                         code.push(format!("PUSH {}", reg.to_str()));
                     }
                     // make space on stack for local variables
-                    for (_, var_data) in &func_data.scope_data.variables {
+                    let scope_data = self.get_scope_data(func_name).unwrap();
+                    for (_, var_data) in &scope_data.variables {
                         for _ in 0..var_data.size {
                             // R1 contains "garbage", but we're just making space
                             code.push(String::from("PUSH R1"));
@@ -266,9 +264,10 @@ impl Compiler {
                 code.push(format!("_{}_END:", func_name));
 
                 // restore registers
-                let func_data = self.get_func_data(&func_name);
+                let func_data = self.get_func_data(&func_name).unwrap();
+                let scope_data = self.get_scope_data(func_name).unwrap();
                 // dealocate stack space of local variables
-                for (_, var_data) in &func_data.scope_data.variables {
+                for (_, var_data) in &scope_data.variables {
                     for _ in 0..var_data.size {
                         // R1 contains "garbage", but we're just making space
                         code.push(String::from("POP R2"));
@@ -295,10 +294,10 @@ impl Compiler {
                         code.push(format!("JUMP _{}_END", scope));
                     }
                     Statement::Decl(decl) => {
-                        // self.update_var_declared(&decl.name);
+                        self.update_var_declared(&decl.name, scope);
                         if let Some(expr) = &decl.init {
                             // if decleration is also initialization
-                            self.load_addr_of(&decl.name, &scope, code);
+                            self.codegen_load_addr_of_var(&decl.name, &scope, code);
                             code.push("PUSH R1".to_string());
                             self.right_gen(&expr, &scope, code);
                             code.push("POP R2".to_string());
@@ -342,13 +341,8 @@ impl Compiler {
         let mut cur_scope_name = scope;
         loop{
             println!("seraching for var {} inside scope {}", var_name, cur_scope_name);
-            let cur_scope = self.scope_to_data.get(cur_scope_name.as_str()).expect(&format!("scope:{} doesn't exist", cur_scope_name));
-            let scope_data = match cur_scope{
-                ScopeLike::Func(func_data) => &func_data.scope_data,
-                ScopeLike::Scope(s) => {
-                     s
-                   },
-            };
+            // let cur_scope = self.scope_to_data.get(cur_scope_name.as_str()).expect(&format!("scope:{} doesn't exist", cur_scope_name));
+            let scope_data = self.get_scope_data(scope).expect(&format!("scope:{} doesn't exist", cur_scope_name));
             if let Some(x) = scope_data.variables.get(var_name.as_str()){
                 return Some(x);
             }else{
@@ -360,27 +354,22 @@ impl Compiler {
         }
     }
 
-    // fn update_var_declared(&mut self, var_name: &String){
-    //     let x = self.scope_to_data.get(&var_name).expect("Variable doesn'te exist")
-    // }
-
-    // fn get_var_type_and_size(&self, node: &Node) -> (String, u32){
-    //     (String::from("int"), 1) // TODO generalize
-    // }
+    fn update_var_declared(&mut self, var_name: &String, scope: &String){
+        // let var = self.find_variable(var_name, scope);
+        let scope_data = self.get_scope_data_mut(scope).expect("scope doesn't exist");
+        scope_data.declared_variables.insert(var_name.clone().to_string());
+    }
 
     fn get_type_size(&self, _type: &String) -> u32 {
         1 // TODO: generalize
     }
 
-    // registers function's data, returns its name
-    fn regiser_function(&mut self, func_def: &FuncDef, parent_scope: &String) {
-        let func_name = &func_def.decl.name;
+    fn register_scope(&mut self, scope_name: &String, statements: &Vec<Statement>, parent_scope_name: &String, parent_func_name: &String){
         // collect variables
         let mut next_var_offset = 0;
         let mut variables = HashMap::new();
-        let block_items = &func_def.body.items;
-        for item in block_items.iter() {
-            if let Statement::Decl(decl) = item {
+        for statement in statements.iter() {
+            if let Statement::Decl(decl) = statement {
                 let var_name = &decl.name;
                 let var_type = &decl._type;
                 let var_size = self.get_type_size(&var_type);
@@ -395,43 +384,48 @@ impl Compiler {
                 );
                 next_var_offset += var_size;
             }
+            // TODO: recurse into inside scopes
         }
 
-        let regs_used = vec![Register::R1, Register::R2];
-        let funcret_type = String::from("int");
         let scope_data = ScopeData {
-            name: func_name.clone(),
-            parent_scope: parent_scope.clone(),
+            name: scope_name.clone(),
+            parent_scope: parent_scope_name.clone(),
+            parent_func: parent_func_name.clone(),
             variables: variables,
             declared_variables: HashSet::new(),
         };
+        self.scope_to_data.insert(scope_name.clone(), scope_data);
+    }
+
+    // registers function's data, returns its name
+    fn regiser_function(&mut self, func_def: &FuncDef, parent_scope: &String) {
+        let func_name = &func_def.decl.name;
+        self.register_scope(func_name, &func_def.body.items, parent_scope, func_name);
+        let regs_used = vec![Register::R1, Register::R2];
+        let funcret_type = String::from("int");
         let func_data = FuncData {
-            scope_data: scope_data,
+            name: func_name.clone(),
             regs_used: regs_used,
             returnType: funcret_type,
         };
-        self.scope_to_data
-            .insert(func_name.clone(), ScopeLike::Func(func_data));
+        self.func_to_data.insert(func_name.clone(), func_data);
     }
 
-    fn get_func_data(&self, func_name: &String) -> &FuncData {
-        if let Some(ScopeLike::Func(fd)) = self.scope_to_data.get(&func_name.to_string()) {
-            &fd
-        } else {
-            panic!();
-        }
+    fn get_func_data(&self, func_name: &String) -> Option<&FuncData> {
+        self.func_to_data.get(func_name)
     }
 
     fn _compile(&mut self, path_to_c_source: &str) -> Vec<String> {
         let mut code: Vec<String> = Vec::new();
         let ast = AST::get_ast(path_to_c_source);
 
-        self.scope_to_data.insert("_GLOBAL".to_string(), ScopeLike::Scope(ScopeData {
+        self.scope_to_data.insert("_GLOBAL".to_string(), ScopeData {
             name: "_GLOBAL".to_string(),
             parent_scope: "_GLOBAL".to_string(),
+            parent_func:  "_GLOBAL".to_string(),
             variables: HashMap::new(),
             declared_variables: HashSet::new(),
-        }));
+        });
         let External::FuncDef(main_func) = &ast.externals[0];
         let main_decl = &main_func.decl;
         assert_eq!(main_decl.name, "main".to_string());
