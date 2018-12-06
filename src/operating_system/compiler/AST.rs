@@ -98,7 +98,7 @@ impl Compound {
         }
         Ok(Compound {
              items: statements,
-             code_loc: node["coord"].as_str().unwrap().to_string(),
+             code_loc: node["coord"].as_str().unwrap().to_string().replace(":", "-"),
         })
 
     }
@@ -414,7 +414,7 @@ impl If {
             cond: Expression::from(&node["cond"])?,
             iftrue: Box::new(Compound::from(&node["iftrue"])?),
             iffalse: iffalse,
-            code_loc: node["coord"].as_str().unwrap().to_string(),
+            code_loc: node["coord"].as_str().unwrap().to_string().replace(":","-"),
         })
     }
 }

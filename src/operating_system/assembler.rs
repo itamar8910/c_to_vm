@@ -28,7 +28,7 @@ fn maybe_parse_instruction(
         if let Result::Ok(_) = FlowOp::from_str(args[0]) {
             // replace label string with numeric offset
             let label = String::from(args[1]);
-            assert!(symbol_table.contains_key(&label));
+            assert!(symbol_table.contains_key(&label), format!("label:{} does not exist in symbol table", label));
             let offset = (*symbol_table.get(&label).unwrap() as i32) - (cur_rel_address as i32);
             return Some(Instruction::from_str(&format!("{} {}", args[0], offset)).unwrap());
         }
@@ -41,6 +41,7 @@ fn maybe_parse_instruction(
 }
 
 pub fn assemble(program: &str) -> (Vec<Instruction>, HashMap<String, u32>) {
+    println!("assembling program:{}", program);
     let mut symbol_table = HashMap::new();
     let mut instructions = Vec::new();
     let mut cur_rel_address = 0;

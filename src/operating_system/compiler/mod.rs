@@ -21,6 +21,7 @@ struct VariableData {
 struct FuncData {
     name: String,
     regs_used: Vec<Register>,
+    local_vars_size: u32,
     returnType: String,
 }
 
@@ -251,11 +252,9 @@ impl Compiler {
                     }
                     // make space on stack for local variables
                     let scope_data = self.get_scope_data(func_name).unwrap();
-                    for (_, var_data) in &scope_data.variables {
-                        for _ in 0..var_data.size {
-                            // R1 contains "garbage", but we're just making space
-                            code.push(String::from("PUSH R1"));
-                        }
+                    for _ in 0..func_data.local_vars_size {
+                            // ZR contains "garbage", but we're just making space
+                            code.push(String::from("PUSH ZR"));
                     }
                 }
 
@@ -291,7 +290,7 @@ impl Compiler {
                         self.right_gen(&ret.expr, &scope, code);
                         code.push("ADD R2 BP 2".to_string());
                         code.push("STR R2 R1 ".to_string());
-                        code.push(format!("JUMP _{}_END", scope));
+                        code.push(format!("JUMP _{}_END", self.get_scope_data(scope).unwrap().parent_func));
                     }
                     Statement::Decl(decl) => {
                         self.update_var_declared(&decl.name, scope);
@@ -344,13 +343,13 @@ impl Compiler {
         let mut cur_scope_name = scope;
         loop{
             println!("seraching for var {} inside scope {}", var_name, cur_scope_name);
-            // let cur_scope = self.scope_to_data.get(cur_scope_name.as_str()).expect(&format!("scope:{} doesn't exist", cur_scope_name));
             let scope_data = self.get_scope_data(cur_scope_name).expect(&format!("scope:{} doesn't exist", cur_scope_name));
             if let Some(x) = scope_data.variables.get(var_name.as_str()){
                 if scope_data.declared_variables.contains(var_name){
                     return Some(x);
                 }
-            }else{
+            }
+            {
                 if cur_scope_name == "_GLOBAL"{
                     return None
                 }
@@ -369,7 +368,7 @@ impl Compiler {
         1 // TODO: generalize
     }
 
-    fn register_scope(&mut self, scope_name: &String, statements: &Vec<Statement>, parent_scope_name: &String, parent_func_name: &String, current_var_offset: u32){
+    fn register_scope(&mut self, scope_name: &String, statements: &Vec<Statement>, parent_scope_name: &String, parent_func_name: &String, current_var_offset: & mut u32){
         // collect variables
         let mut next_var_offset = current_var_offset;
         let mut variables = HashMap::new();
@@ -384,11 +383,11 @@ impl Compiler {
                         VariableData {
                             name: var_name.clone(),
                             varType: var_type.clone(),
-                            offset: next_var_offset,
+                            offset: next_var_offset.clone(),
                             size: var_size,
                         },
                     );
-                    next_var_offset += var_size;
+                    *next_var_offset += var_size;
 
                 },
                 Statement::Compound(comp) => {
@@ -423,13 +422,15 @@ impl Compiler {
     // registers function's data, returns its name
     fn regiser_function(&mut self, func_def: &FuncDef, parent_scope: &String) {
         let func_name = &func_def.decl.name;
-        self.register_scope(func_name, &func_def.body.items, parent_scope, func_name, 0);
+        let mut vars_size : u32 = 0;
+        self.register_scope(func_name, &func_def.body.items, parent_scope, func_name, &mut vars_size);
 
         let regs_used = vec![Register::R1, Register::R2];
         let funcret_type = String::from("int");
         let func_data = FuncData {
             name: func_name.clone(),
             regs_used: regs_used,
+            local_vars_size: vars_size.clone(),
             returnType: funcret_type,
         };
         self.func_to_data.insert(func_name.clone(), func_data);
@@ -484,7 +485,7 @@ mod tests{
         compiler._compile("tests/compiler_test_data/scopes/inputs/declare_block.c");
         println!("{:?}", compiler.scope_to_data);
         assert_eq!(compiler.scope_to_data.len(), 3);
-        let block_scope = compiler.scope_to_data.get("tests/compiler_test_data/scopes/inputs/declare_block.c:2:1").unwrap();
+        let block_scope = compiler.scope_to_data.get("tests/compiler_test_data/scopes/inputs/declare_block.c-2-1").unwrap();
         assert!(block_scope.variables.contains_key("i"));
 
     }
