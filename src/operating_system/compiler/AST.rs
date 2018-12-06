@@ -80,6 +80,7 @@ impl FuncDecl {
 
 pub struct Compound {
     pub items: Vec<Statement>,
+    pub code_loc: String, // needed for scope id
 }
 
 impl Compound {
@@ -95,7 +96,11 @@ impl Compound {
                 }
             }
         }
-        Ok(Compound { items: statements })
+        Ok(Compound {
+             items: statements,
+             code_loc: node["coord"].as_str().unwrap().to_string(),
+        })
+
     }
 }
 
@@ -105,6 +110,7 @@ pub enum Statement {
     Assignment(Assignment),
     Expression(Expression),
     If(If),
+    Compound(Compound),
 }
 
 impl Statement {
@@ -114,10 +120,9 @@ impl Statement {
             "Decl" => Ok(Statement::Decl(Decl::from(&node)?)),
             "Assignment" => Ok(Statement::Assignment(Assignment::from(&node)?)),
             "If" => Ok(Statement::If(If::from(&node)?)),
+            "Compound" => Ok(Statement::Compound(Compound::from(&node)?)),
             _ => {
                 Ok(Statement::Expression(Expression::from(&node)?))
-                // panic!("Invalid statement type: {}", node["_nodetype"].as_str().unwrap());
-                // Err(())
             }
         }
     }
@@ -395,6 +400,7 @@ pub struct If {
     pub cond: Expression,
     pub iftrue: Box<Compound>,
     pub iffalse: Option<Box<Compound>>,
+    pub code_loc: String, // needed for scope id
 }
 
 impl If {
@@ -408,6 +414,7 @@ impl If {
             cond: Expression::from(&node["cond"])?,
             iftrue: Box::new(Compound::from(&node["iftrue"])?),
             iffalse: iffalse,
+            code_loc: node["coord"].as_str().unwrap().to_string(),
         })
     }
 }

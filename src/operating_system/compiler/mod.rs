@@ -318,16 +318,19 @@ impl Compiler {
                         self.right_gen(&if_stmt.cond, &scope, code);
                         code.push("TSTN R1 0".to_string());
                         code.push(format!("FJMP {}", else_label));
-                        self.code_gen(AstNode::Compound(&*if_stmt.iftrue), &scope, code);
+                        self.code_gen(AstNode::Compound(&*if_stmt.iftrue), &if_stmt.iftrue.code_loc, code);
                         code.push(format!("JUMP {}", if_end_label));
                         code.push(format!("{}:", else_label));
                         match &if_stmt.iffalse.as_ref() {
                             Some(ref iffalse) => {
-                                self.code_gen(AstNode::Compound(&*(*iffalse)), &scope, code);
+                                self.code_gen(AstNode::Compound(&*(*iffalse)), &iffalse.code_loc, code);
                             }
                             None => {}
                         }
                         code.push(format!("{}:", if_end_label));
+                    },
+                    Statement::Compound(comp) => {
+                        self.code_gen(AstNode::Compound(&comp), &comp.code_loc, code);
                     }
                 }
             }
@@ -342,9 +345,11 @@ impl Compiler {
         loop{
             println!("seraching for var {} inside scope {}", var_name, cur_scope_name);
             // let cur_scope = self.scope_to_data.get(cur_scope_name.as_str()).expect(&format!("scope:{} doesn't exist", cur_scope_name));
-            let scope_data = self.get_scope_data(scope).expect(&format!("scope:{} doesn't exist", cur_scope_name));
+            let scope_data = self.get_scope_data(cur_scope_name).expect(&format!("scope:{} doesn't exist", cur_scope_name));
             if let Some(x) = scope_data.variables.get(var_name.as_str()){
-                return Some(x);
+                if scope_data.declared_variables.contains(var_name){
+                    return Some(x);
+                }
             }else{
                 if cur_scope_name == "_GLOBAL"{
                     return None
@@ -364,27 +369,45 @@ impl Compiler {
         1 // TODO: generalize
     }
 
-    fn register_scope(&mut self, scope_name: &String, statements: &Vec<Statement>, parent_scope_name: &String, parent_func_name: &String){
+    fn register_scope(&mut self, scope_name: &String, statements: &Vec<Statement>, parent_scope_name: &String, parent_func_name: &String, current_var_offset: u32){
         // collect variables
-        let mut next_var_offset = 0;
+        let mut next_var_offset = current_var_offset;
         let mut variables = HashMap::new();
         for statement in statements.iter() {
-            if let Statement::Decl(decl) = statement {
-                let var_name = &decl.name;
-                let var_type = &decl._type;
-                let var_size = self.get_type_size(&var_type);
-                variables.insert(
-                    var_name.clone(),
-                    VariableData {
-                        name: var_name.clone(),
-                        varType: var_type.clone(),
-                        offset: next_var_offset,
-                        size: var_size,
-                    },
-                );
-                next_var_offset += var_size;
+            match statement{
+                Statement::Decl(decl) => {
+                    let var_name = &decl.name;
+                    let var_type = &decl._type;
+                    let var_size = self.get_type_size(&var_type);
+                    variables.insert(
+                        var_name.clone(),
+                        VariableData {
+                            name: var_name.clone(),
+                            varType: var_type.clone(),
+                            offset: next_var_offset,
+                            size: var_size,
+                        },
+                    );
+                    next_var_offset += var_size;
+
+                },
+                Statement::Compound(comp) => {
+                    let new_scope_name = &comp.code_loc;
+                    self.register_scope(new_scope_name, &comp.items, scope_name, parent_func_name, next_var_offset);
+                },
+                Statement::If(if_stmt) => {
+                    {
+                        let iftrue_scope_name = &if_stmt.iftrue.code_loc;
+                        self.register_scope(iftrue_scope_name, &if_stmt.iftrue.items, scope_name, parent_func_name, next_var_offset);
+                    }
+                    if let Some(ref iffalse) = if_stmt.iffalse{
+                        let iffalse_scope_name = &iffalse.code_loc;
+                        self.register_scope(iffalse_scope_name, &iffalse.items, scope_name, parent_func_name, next_var_offset);
+                    }
+                },
+                _ => {}
             }
-            // TODO: recurse into inside scopes
+            
         }
 
         let scope_data = ScopeData {
@@ -400,7 +423,8 @@ impl Compiler {
     // registers function's data, returns its name
     fn regiser_function(&mut self, func_def: &FuncDef, parent_scope: &String) {
         let func_name = &func_def.decl.name;
-        self.register_scope(func_name, &func_def.body.items, parent_scope, func_name);
+        self.register_scope(func_name, &func_def.body.items, parent_scope, func_name, 0);
+
         let regs_used = vec![Register::R1, Register::R2];
         let funcret_type = String::from("int");
         let func_data = FuncData {
@@ -450,9 +474,18 @@ mod tests{
     fn find_variable(){
         let mut compiler = Compiler::new();
         compiler._compile("tests/compiler_test_data/variables/inputs/assign.c");
-        println!("{:?}", compiler.scope_to_data);
         let a_var = compiler.find_variable(&"a".to_string(), &"main".to_string()).unwrap();
         let b_var = compiler.find_variable(&"b".to_string(), &"main".to_string());
         assert!(b_var.is_none());
+    }
+    #[test]
+    fn find_nested_scope(){
+        let mut compiler = Compiler::new();
+        compiler._compile("tests/compiler_test_data/scopes/inputs/declare_block.c");
+        println!("{:?}", compiler.scope_to_data);
+        assert_eq!(compiler.scope_to_data.len(), 3);
+        let block_scope = compiler.scope_to_data.get("tests/compiler_test_data/scopes/inputs/declare_block.c:2:1").unwrap();
+        assert!(block_scope.variables.contains_key("i"));
+
     }
 }
