@@ -28,6 +28,12 @@ impl FromStr for Register {
         }
     }
 }
+
+pub fn register_from_str(s: &str) -> Result<Register, ()> {
+    Register::from_str(s)
+
+}
+
 impl std::fmt::Display for Register {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.to_str())
@@ -349,7 +355,6 @@ impl Instruction {
                 arg2: RegOrImm::from_str(args[3]).unwrap(),
             });
         } else if let Result::Ok(op) = DataOp::from_str(&op) {
-            println!("{:?}", args);
             assert!(args.len() == 3);
             return Ok(Instruction::Data {
                 op: op,

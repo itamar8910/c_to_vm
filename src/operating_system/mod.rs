@@ -121,4 +121,47 @@ impl OS {
         let (instructions, _) = assemble(program);
         self.run_program(instructions)
     }
+
+    pub fn debug_program(&mut self, instructions: Vec<Instruction>) -> i32{
+        self.reset_cpu_state();
+        self.load_program(instructions, PROGRAM_INIT_ADDRESS);
+        self.cpu
+            .regs
+            .set(&Register::IR, PROGRAM_INIT_ADDRESS as i32);
+        self.initialize_stackframe();
+
+        loop{
+            let next_instr = self.cpu.fetch();
+            println!("{}: {}", self.cpu.regs.get(&Register::IR) - PROGRAM_INIT_ADDRESS as i32, next_instr.to_str());
+            let keep_running = self.cpu.step();
+            use std::io::{stdin,stdout,Write};
+            let mut cmd = String::new();
+            if let Some('\n')=cmd.chars().next_back() {
+                cmd.pop();
+            }
+            stdin().read_line(&mut cmd).expect("");
+            let args: Vec<&str> = cmd.split_whitespace().collect();
+            if args[0] == "step"{
+
+            }
+            if args[0] == "reg"{
+                let reg = register_from_str(args[1]).unwrap();
+                let reg_val = self.cpu.regs.get(&reg);
+                println!("{}", reg_val);
+            }
+            
+            if !keep_running{
+                break;
+            }
+        }
+
+        let bp = self.cpu.regs.get(&Register::BP);
+        self.cpu.mem.get_num((bp + 2) as u32)
+    }
+
+    pub fn assemble_and_debug(&mut self, program: &str) -> i32 {
+        let (instructions, _) = assemble(program);
+        self.debug_program(instructions)
+    }
+
 }

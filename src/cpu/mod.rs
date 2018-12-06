@@ -83,7 +83,7 @@ impl Cpu {
         }
     }
 
-    fn fetch(&self) -> Instruction {
+    pub fn fetch(&self) -> Instruction {
         if let MemEntry::Instruction(instr) = self.mem.get(self.regs.get(&Register::IR) as u32) {
             return instr.clone();
         }
@@ -214,16 +214,17 @@ impl Cpu {
         }
     }
 
+    pub fn step(&mut self) -> bool{
+        let instr = self.fetch();
+        let keep_running = self.execute(&instr);
+        let ir = self.regs.get(&Register::IR);
+        self.regs.set(&Register::IR, ir + 1);
+        keep_running
+    }
+
     pub fn start(&mut self) {
         loop {
-            println!(
-                "fetching instruction from: {}",
-                self.regs.get(&Register::IR)
-            );
-            let instr = self.fetch();
-            let keep_running = self.execute(&instr);
-            let ir = self.regs.get(&Register::IR);
-            self.regs.set(&Register::IR, ir + 1);
+            let keep_running = self.step();
             if !keep_running {
                 break;
             }
