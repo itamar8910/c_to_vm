@@ -86,13 +86,21 @@ pub struct Compound {
 impl Compound {
     fn from(node: &JsonNode) -> Result<Compound, AstError> {
         let mut statements = Vec::new();
-        match node["block_items"] {
-            JsonNode::Null => {
-                statements.push(Statement::from(&node)?);
+        if node["_nodetype"].as_str().unwrap() == "DeclList"{
+            // we treat DeclList as a compound, because a declaration is also a statement
+            for decl_node in node["decls"].as_array().unwrap().iter() {
+                statements.push(Statement::from(&decl_node)?);
             }
-            _ => {
-                for statement_node in node["block_items"].as_array().unwrap().iter() {
-                    statements.push(Statement::from(&statement_node)?);
+        }
+        else{
+            match node["block_items"] {
+                JsonNode::Null => {
+                    statements.push(Statement::from(&node)?);
+                }
+                _ => {
+                    for statement_node in node["block_items"].as_array().unwrap().iter() {
+                        statements.push(Statement::from(&statement_node)?);
+                    }
                 }
             }
         }
@@ -793,6 +801,28 @@ mod tests {
                             None => {},
                             _ => panic!(),
                         };
+                        assert_eq!(fl.body.items.len(), 2);
+                    },
+                    _ => panic!(),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn for_loop_init_decl(){
+        let ast_root = get_ast("tests/compiler_test_data/_loops/inputs/break.c");
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[1] {
+                    Statement::ForLoop(fl) => {
+                        let init = &fl.init.as_ref().unwrap();
+                        match &init.items[0]{
+                            Statement::Decl(d) => {
+                                assert_eq!(d.name, "i");
+                            },
+                            _ => panic!()
+                        }
                         assert_eq!(fl.body.items.len(), 2);
                     },
                     _ => panic!(),
