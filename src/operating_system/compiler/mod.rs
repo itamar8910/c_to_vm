@@ -2,7 +2,7 @@ extern crate serde_json;
 mod AST;
 
 use self::AST::*;
-use cpu::instructions::Register;
+use crate::cpu::instructions::Register;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -251,7 +251,7 @@ impl Compiler {
                         code.push(format!("PUSH {}", reg.to_str()));
                     }
                     // make space on stack for local variables
-                    let scope_data = self.get_scope_data(func_name).unwrap();
+                    let _scope_data = self.get_scope_data(func_name).unwrap();
                     for _ in 0..func_data.local_vars_size {
                             // ZR contains "garbage", but we're just making space
                             code.push(String::from("PUSH ZR"));
@@ -264,14 +264,12 @@ impl Compiler {
 
                 // restore registers
                 let func_data = self.get_func_data(&func_name).unwrap();
-                let scope_data = self.get_scope_data(func_name).unwrap();
+                let _scope_data = self.get_scope_data(func_name).unwrap();
                 // dealocate stack space of local variables
-                for (_, var_data) in &scope_data.variables {
-                    for _ in 0..var_data.size {
-                        // R1 contains "garbage", but we're just making space
-                        code.push(String::from("POP R2"));
+                    for _ in 0..func_data.local_vars_size {
+                        // ZR contains "garbage", but we're just making space
+                        code.push(String::from("POP ZR"));
                     }
-                }
 
                 // save registers
                 for reg in func_data.regs_used.iter().rev() {
@@ -370,7 +368,7 @@ impl Compiler {
 
     fn register_scope(&mut self, scope_name: &String, statements: &Vec<Statement>, parent_scope_name: &String, parent_func_name: &String, current_var_offset: & mut u32){
         // collect variables
-        let mut next_var_offset = current_var_offset;
+        let next_var_offset = current_var_offset;
         let mut variables = HashMap::new();
         for statement in statements.iter() {
             match statement{
@@ -475,7 +473,7 @@ mod tests{
     fn find_variable(){
         let mut compiler = Compiler::new();
         compiler._compile("tests/compiler_test_data/variables/inputs/assign.c");
-        let a_var = compiler.find_variable(&"a".to_string(), &"main".to_string()).unwrap();
+        let _a_var = compiler.find_variable(&"a".to_string(), &"main".to_string()).unwrap();
         let b_var = compiler.find_variable(&"b".to_string(), &"main".to_string());
         assert!(b_var.is_none());
     }

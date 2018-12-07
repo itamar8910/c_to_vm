@@ -1,4 +1,4 @@
-use cpu::instructions::*;
+use crate::cpu::instructions::*;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -83,7 +83,7 @@ mod tests {
         PUSH R2
         HALT
         ";
-        let (isntructions, symbol_table) = assemble(program);
+        let (isntructions, _symbol_table) = assemble(program);
         if let Instruction::Data {
             ref op,
             ref dst,

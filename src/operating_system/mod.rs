@@ -2,9 +2,9 @@ pub mod assembler;
 pub mod compiler;
 
 use self::assembler::assemble;
-use cpu::instructions::*;
-use cpu::Cpu;
-use cpu::MemEntry;
+use crate::cpu::instructions::*;
+use crate::cpu::Cpu;
+use crate::cpu::MemEntry;
 
 /*
 Memory layout:

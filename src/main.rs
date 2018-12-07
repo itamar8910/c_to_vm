@@ -1,8 +1,8 @@
 mod cpu;
 mod operating_system;
 
-use operating_system::compiler::Compiler;
-use operating_system::OS;
+use crate::operating_system::compiler::Compiler;
+use crate::operating_system::OS;
 use std::env;
 
 fn main() {

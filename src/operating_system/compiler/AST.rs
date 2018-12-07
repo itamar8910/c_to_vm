@@ -488,7 +488,7 @@ mod tests {
                         Expression::BinaryOp(bop) => {
                             assert_eq!(bop.op_type, BinaryopType::ADD);
                             let left = &*bop.left;
-                            if let Expression::Constant(left) = left {
+                            if let Expression::Constant(_left) = left {
 
                             } else {
                                 panic!();
@@ -544,7 +544,7 @@ mod tests {
                         }
                         let iftrue = &**&if_stmt.iftrue; // unbox statement
                         let iftrue = &iftrue.items[0];
-                        if let Statement::Assignment(ass) = iftrue {
+                        if let Statement::Assignment(_ass) = iftrue {
                         } else {
                             panic!();
                         }
@@ -578,11 +578,11 @@ mod tests {
                             panic!();
                         }
                         let iftrue = &*if_stmt.iftrue; // unbox statement, then get reference to unboxed value
-                        if let Statement::Assignment(ass) = &iftrue.items[0] {
+                        if let Statement::Assignment(_ass) = &iftrue.items[0] {
                         } else {
                             panic!();
                         }
-                        if let Statement::Assignment(ass) = &iftrue.items[1] {
+                        if let Statement::Assignment(_ass) = &iftrue.items[1] {
                         } else {
                             panic!();
                         }
