@@ -356,7 +356,24 @@ impl Compiler {
                         code.push(format!("{}:", dowhile_end));
                     },
                     Statement::ForLoop(fl) => {
-                        panic!("not yet implemented");
+                        let for_cond = format!("FOR_{}_COND", self.tmp_label_count);
+                        let for_end = format!("FOR_{}_END", self.tmp_label_count);
+                        self.tmp_label_count += 1;
+                        if let Some(init) = &fl.init{
+                            self.code_gen(AstNode::Compound(init), scope, code);
+                        }
+                        code.push(format!("{}:", for_cond));
+                        if let Some(cond) = &fl.cond{
+                            self.right_gen(cond, scope, code);
+                            code.push("TSTN R1 0".to_string());
+                            code.push(format!("FJMP {}", for_end));
+                        }
+                        self.code_gen(AstNode::Compound(&fl.body), &fl.code_loc, code);
+                        if let Some(next) = &fl.next{
+                            self.code_gen(AstNode::Compound(next), scope, code);
+                        }
+                        code.push(format!("JUMP {}", for_cond));
+                        code.push(format!("{}:", for_end));
                     },
                     Statement::Break => {
                         panic!("not yet implemented");
@@ -439,6 +456,9 @@ impl Compiler {
                 },
                 Statement::DoWhileLoop(dwl) => {
                     self.register_scope(&dwl.code_loc, & dwl.body.items, scope_name, parent_func_name, next_var_offset)
+                },
+                Statement::ForLoop(fl) => {
+                    self.register_scope(&fl.code_loc, & fl.body.items, scope_name, parent_func_name, next_var_offset)
                 }
                 _ => {}
             }
