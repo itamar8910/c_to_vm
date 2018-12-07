@@ -113,6 +113,8 @@ pub enum Statement {
     Compound(Compound),
     WhileLoop(WhileLoop),
     DoWhileLoop(DoWhileLoop),
+    ForLoop(ForLoop),
+    Break,
 }
 
 impl Statement {
@@ -125,6 +127,8 @@ impl Statement {
             "Compound" => Ok(Statement::Compound(Compound::from(&node)?)),
             "While" => Ok(Statement::WhileLoop(WhileLoop::from(&node)?)),
             "DoWhile" => Ok(Statement::DoWhileLoop(DoWhileLoop::from(&node)?)),
+            "For" => Ok(Statement::ForLoop(ForLoop::from(&node)?)),
+            "Break" => Ok(Statement::Break),
             _ => {
                 Ok(Statement::Expression(Expression::from(&node)?))
             }
@@ -186,9 +190,9 @@ impl Expression {
             "Assignment" => Ok(Expression::Assignment(Assignment::from(&node)?)),
             "TernaryOp" => Ok(Expression::TernaryOp(TernaryOp::from(&node)?)),
             _ => {
-                println!(
+                panic!(format!(
                     "Invalid expression type:{}",
-                    node["_nodetype"].as_str().unwrap()
+                    node["_nodetype"].as_str().unwrap())
                 );
                 Err(())
             }
@@ -409,11 +413,7 @@ pub struct If {
 
 impl If {
     fn from(node: &JsonNode) -> Result<If, AstError> {
-        let iffalse = match &node["iffalse"] {
-            JsonNode::Object(_) => Some(Box::new(Compound::from(&node["iffalse"])?)),
-            JsonNode::Null => None,
-            _ => panic!("invalid type for else node"),
-        };
+        let iffalse = maybe_get_boxed_compound(node, "iffalse");
         Ok(If {
             cond: Expression::from(&node["cond"])?,
             iftrue: Box::new(Compound::from(&node["iftrue"])?),
@@ -470,6 +470,42 @@ impl DoWhileLoop {
         })
     }
 }
+
+pub struct ForLoop{
+    pub cond: Option<Expression>,
+    pub init: Option<Box<Compound>>,
+    pub body: Box<Compound>,
+    pub next: Option<Box<Compound>>,
+    pub code_loc: String, // needed for scope id
+}
+
+fn maybe_get_boxed_compound(node: &JsonNode, key: &str) -> Option<Box<Compound>>{
+    match &node[key] {
+        JsonNode::Object(_) => Some(Box::new(Compound::from(&node[key]).unwrap())),
+        JsonNode::Null => None,
+        _ => panic!("invalid type for optional compound"),
+    }
+
+}
+
+impl ForLoop {
+    fn from(node: &JsonNode) -> Result<ForLoop, AstError> {
+        println!("creating for loop");
+        Ok(ForLoop{
+            cond: 
+                match &node["cond"]{
+                    JsonNode::Object(_) => Some(Expression::from(&node["cond"]).unwrap()),
+                    JsonNode::Null => None,
+                    _ => panic!("unexpected JSON type for cond")
+                },
+            init: maybe_get_boxed_compound(node, "init"),
+            body: Box::new(Compound::from(&node["stmt"])?),
+            next: maybe_get_boxed_compound(node, "next"),
+            code_loc: node["coord"].as_str().unwrap().to_string().replace(":","-"),
+        })
+    }
+}
+
 pub fn get_ast(path_to_c_source: &str) -> RootAstNode {
     assert!(path_to_c_source.ends_with(".c"));
     let output = Command::new(PATH_TO_PY_EXEC)
@@ -687,5 +723,81 @@ mod tests {
             _ => panic!()
         }
 
+    }
+    #[test]
+    fn for_loop(){
+        let ast_root = get_ast("tests/compiler_test_data/_loops/inputs/for.c");
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[1] {
+                    Statement::ForLoop(fl) => {
+                        match &fl.cond{
+                            Some(Expression::BinaryOp(bop)) => {
+                                match &bop.op_type{
+                                    BinaryopType::LT => {},
+                                    _ => panic!(),
+                                }
+                            },
+                            _ => panic!()
+                        };
+                        match &fl.body.items[0]{
+                            Statement::Assignment(ass) => {},
+                            _ => panic!(),
+                        };
+                        let init = &fl.init.as_ref().unwrap();
+                        match &init.items[0]{
+                            Statement::Assignment(ass) => {},
+                            _ => panic!(),
+                        };
+                        let next = &fl.next.as_ref().unwrap();
+                        match &next.items[0]{
+                            Statement::Assignment(ass) => {
+                                let right = & *ass.rvalue;
+                                match right{
+                                    Expression::BinaryOp(bop) => {
+                                        match bop.op_type{
+                                            BinaryopType::ADD => {},
+                                            _ => panic!()
+                                        }
+                                    },
+                                    _ => panic!()
+                                };
+                            },
+                            _ => panic!(),
+                        };
+                    }
+                    _ => panic!()
+                }
+            },
+            _ => panic!()
+        }
+
+    }
+
+    #[test]
+    fn empty_for_loop(){
+        let ast_root = get_ast("tests/compiler_test_data/_loops/inputs/for_empty.c");
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[1] {
+                    Statement::ForLoop(fl) => {
+                        match &fl.init{
+                            None => {},
+                            _ => panic!(),
+                        };
+                        match &fl.cond{
+                            None => {},
+                            _ => panic!(),
+                        };
+                        match &fl.next{
+                            None => {},
+                            _ => panic!(),
+                        };
+                        assert_eq!(fl.body.items.len(), 2);
+                    },
+                    _ => panic!(),
+                }
+            }
+        }
     }
 }

@@ -354,6 +354,12 @@ impl Compiler {
                         self.code_gen(AstNode::Compound(&dwl.body), &dwl.code_loc, code);
                         code.push(format!("JUMP {}", dowhile_cond));
                         code.push(format!("{}:", dowhile_end));
+                    },
+                    Statement::ForLoop(fl) => {
+                        panic!("not yet implemented");
+                    },
+                    Statement::Break => {
+                        panic!("not yet implemented");
                     }
                 }
             }
