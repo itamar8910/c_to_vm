@@ -86,20 +86,23 @@ pub struct Compound {
 impl Compound {
     fn from(node: &JsonNode) -> Result<Compound, AstError> {
         let mut statements = Vec::new();
-        if node["_nodetype"].as_str().unwrap() == "DeclList"{
-            // we treat DeclList as a compound, because a declaration is also a statement
-            for decl_node in node["decls"].as_array().unwrap().iter() {
-                statements.push(Statement::from(&decl_node)?);
-            }
-        }
-        else{
-            match node["block_items"] {
-                JsonNode::Null => {
-                    statements.push(Statement::from(&node)?);
+        let node_type = node["_nodetype"].as_str().unwrap();
+        if node_type != "EmptyStatement"{
+            if node_type == "DeclList"{
+                // we treat DeclList as a compound, because a declaration is also a statement
+                for decl_node in node["decls"].as_array().unwrap().iter() {
+                    statements.push(Statement::from(&decl_node)?);
                 }
-                _ => {
-                    for statement_node in node["block_items"].as_array().unwrap().iter() {
-                        statements.push(Statement::from(&statement_node)?);
+            }
+            else{
+                match node["block_items"] {
+                    JsonNode::Null => {
+                        statements.push(Statement::from(&node)?);
+                    }
+                    _ => {
+                        for statement_node in node["block_items"].as_array().unwrap().iter() {
+                            statements.push(Statement::from(&statement_node)?);
+                        }
                     }
                 }
             }
@@ -123,6 +126,7 @@ pub enum Statement {
     DoWhileLoop(DoWhileLoop),
     ForLoop(ForLoop),
     Break,
+    Continue,
 }
 
 impl Statement {
@@ -132,11 +136,12 @@ impl Statement {
             "Decl" => Ok(Statement::Decl(Decl::from(&node)?)),
             "Assignment" => Ok(Statement::Assignment(Assignment::from(&node)?)),
             "If" => Ok(Statement::If(If::from(&node)?)),
-            "Compound" => Ok(Statement::Compound(Compound::from(&node)?)),
+            "Compound" | "EmptyStatement"=> Ok(Statement::Compound(Compound::from(&node)?)),
             "While" => Ok(Statement::WhileLoop(WhileLoop::from(&node)?)),
             "DoWhile" => Ok(Statement::DoWhileLoop(DoWhileLoop::from(&node)?)),
             "For" => Ok(Statement::ForLoop(ForLoop::from(&node)?)),
             "Break" => Ok(Statement::Break),
+            "Continue" => Ok(Statement::Continue),
             _ => {
                 Ok(Statement::Expression(Expression::from(&node)?))
             }
@@ -706,7 +711,7 @@ mod tests {
     }
     #[test]
     fn while_loop(){
-        let ast_root = get_ast("tests/compiler_test_data/_loops/inputs/while_single_statement.c");
+        let ast_root = get_ast("tests/compiler_test_data/loops/inputs/while_single_statement.c");
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 match &func_def.body.items[1] {
@@ -734,7 +739,7 @@ mod tests {
     }
     #[test]
     fn for_loop(){
-        let ast_root = get_ast("tests/compiler_test_data/_loops/inputs/for.c");
+        let ast_root = get_ast("tests/compiler_test_data/loops/inputs/for.c");
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 match &func_def.body.items[1] {
@@ -784,7 +789,7 @@ mod tests {
 
     #[test]
     fn empty_for_loop(){
-        let ast_root = get_ast("tests/compiler_test_data/_loops/inputs/for_empty.c");
+        let ast_root = get_ast("tests/compiler_test_data/loops/inputs/for_empty.c");
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 match &func_def.body.items[1] {
@@ -811,7 +816,7 @@ mod tests {
 
     #[test]
     fn for_loop_init_decl(){
-        let ast_root = get_ast("tests/compiler_test_data/_loops/inputs/break.c");
+        let ast_root = get_ast("tests/compiler_test_data/loops/inputs/break.c");
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 match &func_def.body.items[1] {

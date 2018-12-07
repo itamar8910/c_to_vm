@@ -32,6 +32,8 @@ struct ScopeData {
     parent_func: String,
     variables: HashMap<String, VariableData>,
     declared_variables: HashSet<String>,
+    break_label: Option<String>,
+    continue_label: Option<String>,
 }
 
 
@@ -332,6 +334,7 @@ impl Compiler {
                         let while_start = format!("WHILE_{}_START", self.tmp_label_count);
                         let while_end = format!("WHILE_{}_END", self.tmp_label_count);
                         self.tmp_label_count += 1;
+                        self.update_scope_break_continue_labels(&wl.code_loc, &while_end, &while_start);
                         code.push(format!("{}:", while_start));
                         self.right_gen(&wl.cond, scope, code);
                         code.push("TSTN R1 0".to_string());
@@ -345,6 +348,7 @@ impl Compiler {
                         let dowhile_body = format!("DOWHILE_{}_BODY", self.tmp_label_count);
                         let dowhile_end = format!("DOWHILE_{}_END", self.tmp_label_count);
                         self.tmp_label_count += 1;
+                        self.update_scope_break_continue_labels(&dwl.code_loc, &dowhile_end, &dowhile_cond);
                         code.push(format!("JUMP {}", dowhile_body));
                         code.push(format!("{}:", dowhile_cond));
                         self.right_gen(&dwl.cond, scope, code);
@@ -358,25 +362,33 @@ impl Compiler {
                     Statement::ForLoop(fl) => {
                         let for_cond = format!("FOR_{}_COND", self.tmp_label_count);
                         let for_end = format!("FOR_{}_END", self.tmp_label_count);
+                        let for_next = format!("FOR_{}_NEXT", self.tmp_label_count);
                         self.tmp_label_count += 1;
+                        self.update_scope_break_continue_labels(&fl.code_loc, &for_end, &for_next);
                         if let Some(init) = &fl.init{
-                            self.code_gen(AstNode::Compound(init), scope, code);
+                            self.code_gen(AstNode::Compound(init), &fl.code_loc, code);
                         }
                         code.push(format!("{}:", for_cond));
                         if let Some(cond) = &fl.cond{
-                            self.right_gen(cond, scope, code);
+                            self.right_gen(cond, &fl.code_loc, code);
                             code.push("TSTN R1 0".to_string());
                             code.push(format!("FJMP {}", for_end));
                         }
                         self.code_gen(AstNode::Compound(&fl.body), &fl.code_loc, code);
+                        code.push(format!("{}:", for_next));  // we need the next label even if next part of empty for "continue"
                         if let Some(next) = &fl.next{
-                            self.code_gen(AstNode::Compound(next), scope, code);
+                            self.code_gen(AstNode::Compound(next), &fl.code_loc, code);
                         }
                         code.push(format!("JUMP {}", for_cond));
                         code.push(format!("{}:", for_end));
                     },
                     Statement::Break => {
-                        panic!("not yet implemented");
+                        let (break_label, _) = self.find_break_continue_labels(scope).unwrap();
+                        code.push(format!("JUMP {}", break_label));
+                    },
+                    Statement::Continue => {
+                        let (_, continue_label) = self.find_break_continue_labels(scope).unwrap();
+                        code.push(format!("JUMP {}", continue_label));
                     }
                 }
             }
@@ -384,6 +396,27 @@ impl Compiler {
                 panic!("Unkown node type");
             }
         }
+    }
+    fn find_break_continue_labels(&self, scope: &String) -> Option<(&String, &String)>{
+        let mut cur_scope_name = scope;
+        loop{
+            let scope_data = self.get_scope_data(cur_scope_name).expect(&format!("scope:{} doesn't exist", cur_scope_name));
+            if let Some(break_label) = &scope_data.break_label{
+                let continue_label = &scope_data.continue_label.as_ref().expect("scope has break label but not continue label");
+                return Some((break_label, continue_label))
+            }            
+            {
+                if cur_scope_name == "_GLOBAL"{
+                    return None
+                }
+                cur_scope_name = &(scope_data.parent_scope);
+            }
+        }
+    }
+    fn update_scope_break_continue_labels(&mut self, scope: &String, break_label: &String, continue_label: &String){
+        let scope_data = self.get_scope_data_mut(scope).expect("scope doesn't exist");
+        scope_data.break_label = Some(break_label.clone());
+        scope_data.continue_label = Some(continue_label.clone());
     }
 
     fn find_variable(&self, var_name: &String, scope: &String) -> Option<&VariableData>{
@@ -458,7 +491,34 @@ impl Compiler {
                     self.register_scope(&dwl.code_loc, & dwl.body.items, scope_name, parent_func_name, next_var_offset)
                 },
                 Statement::ForLoop(fl) => {
-                    self.register_scope(&fl.code_loc, & fl.body.items, scope_name, parent_func_name, next_var_offset)
+                    // we need to also collect variable declerations from initialization part of for loop
+                    let mut for_init_vars = HashMap::new();
+                    if let Some(init) = &fl.init{
+                        for stmt in init.items.iter(){
+                            match stmt{
+                                Statement::Decl(decl) => {
+                                    let var_name = &decl.name;
+                                    let var_type = &decl._type;
+                                    let var_size = self.get_type_size(&var_type);
+                                    for_init_vars.insert(
+                                        var_name.clone(),
+                                        VariableData {
+                                            name: var_name.clone(),
+                                            varType: var_type.clone(),
+                                            offset: next_var_offset.clone(),
+                                            size: var_size,
+                                        },
+                                    );
+                                    *next_var_offset += var_size;
+                                },
+                                _ => {},
+                            }
+                        }
+                    }
+                    self.register_scope(&fl.code_loc, & fl.body.items, scope_name, parent_func_name, next_var_offset);
+                    let for_body_scope = self.scope_to_data.get_mut(&fl.code_loc).unwrap();
+                    for_body_scope.variables.extend(for_init_vars);
+
                 }
                 _ => {}
             }
@@ -471,6 +531,8 @@ impl Compiler {
             parent_func: parent_func_name.clone(),
             variables: variables,
             declared_variables: HashSet::new(),
+            break_label: None,
+            continue_label: None,
         };
         self.scope_to_data.insert(scope_name.clone(), scope_data);
     }
@@ -506,6 +568,8 @@ impl Compiler {
             parent_func:  "_GLOBAL".to_string(),
             variables: HashMap::new(),
             declared_variables: HashSet::new(),
+            break_label: None,
+            continue_label: None
         });
         let External::FuncDef(main_func) = &ast.externals[0];
         let main_decl = &main_func.decl;
@@ -545,4 +609,21 @@ mod tests{
         assert!(block_scope.variables.contains_key("i"));
 
     }
+
+    #[test]
+    fn find_break_continue_labels(){
+        let mut compiler = Compiler::new();
+        compiler._compile("tests/compiler_test_data/loops/inputs/while_multi_statement.c");
+        println!("{:?}", compiler.scope_to_data);
+        assert_eq!(compiler.scope_to_data.len(), 3);
+        match compiler.find_break_continue_labels(&"tests/compiler_test_data/loops/inputs/while_multi_statement.c-5-5".to_string()){
+            Some((break_label, continue_label)) => {
+                assert_eq!(break_label, "WHILE_0_END");
+                assert_eq!(continue_label, "WHILE_0_START");
+            },
+            _ => panic!()
+        }
+    }
+
+
 }
