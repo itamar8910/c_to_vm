@@ -311,7 +311,6 @@ impl Compiler {
                         let else_label = format!("IF_{}_ELSE", self.tmp_label_count);
                         let if_end_label = format!("IF_{}_END", self.tmp_label_count);
                         self.tmp_label_count += 1;
-                        // TODO: create a new scope for the if statement
                         self.right_gen(&if_stmt.cond, &scope, code);
                         code.push("TSTN R1 0".to_string());
                         code.push(format!("FJMP {}", else_label));
@@ -328,6 +327,33 @@ impl Compiler {
                     },
                     Statement::Compound(comp) => {
                         self.code_gen(AstNode::Compound(&comp), &comp.code_loc, code);
+                    },
+                    Statement::WhileLoop(wl) => {
+                        let while_start = format!("WHILE_{}_START", self.tmp_label_count);
+                        let while_end = format!("WHILE_{}_END", self.tmp_label_count);
+                        self.tmp_label_count += 1;
+                        code.push(format!("{}:", while_start));
+                        self.right_gen(&wl.cond, scope, code);
+                        code.push("TSTN R1 0".to_string());
+                        code.push(format!("FJMP {}", while_end));
+                        self.code_gen(AstNode::Compound(&wl.body), &wl.code_loc, code);
+                        code.push(format!("JUMP {}", while_start));
+                        code.push(format!("{}:", while_end));
+                    },
+                    Statement::DoWhileLoop(dwl) => {
+                        let dowhile_cond = format!("DOWHILE_{}_COND", self.tmp_label_count);
+                        let dowhile_body = format!("DOWHILE_{}_BODY", self.tmp_label_count);
+                        let dowhile_end = format!("DOWHILE_{}_END", self.tmp_label_count);
+                        self.tmp_label_count += 1;
+                        code.push(format!("JUMP {}", dowhile_body));
+                        code.push(format!("{}:", dowhile_cond));
+                        self.right_gen(&dwl.cond, scope, code);
+                        code.push("TSTN R1 0".to_string());
+                        code.push(format!("FJMP {}", dowhile_end));
+                        code.push(format!("{}:", dowhile_body));
+                        self.code_gen(AstNode::Compound(&dwl.body), &dwl.code_loc, code);
+                        code.push(format!("JUMP {}", dowhile_cond));
+                        code.push(format!("{}:", dowhile_end));
                     }
                 }
             }
@@ -402,6 +428,12 @@ impl Compiler {
                         self.register_scope(iffalse_scope_name, &iffalse.items, scope_name, parent_func_name, next_var_offset);
                     }
                 },
+                Statement::WhileLoop(wl) => {
+                    self.register_scope(&wl.code_loc, & wl.body.items, scope_name, parent_func_name, next_var_offset)
+                },
+                Statement::DoWhileLoop(dwl) => {
+                    self.register_scope(&dwl.code_loc, & dwl.body.items, scope_name, parent_func_name, next_var_offset)
+                }
                 _ => {}
             }
             

@@ -111,6 +111,8 @@ pub enum Statement {
     Expression(Expression),
     If(If),
     Compound(Compound),
+    WhileLoop(WhileLoop),
+    DoWhileLoop(DoWhileLoop),
 }
 
 impl Statement {
@@ -121,6 +123,8 @@ impl Statement {
             "Assignment" => Ok(Statement::Assignment(Assignment::from(&node)?)),
             "If" => Ok(Statement::If(If::from(&node)?)),
             "Compound" => Ok(Statement::Compound(Compound::from(&node)?)),
+            "While" => Ok(Statement::WhileLoop(WhileLoop::from(&node)?)),
+            "DoWhile" => Ok(Statement::DoWhileLoop(DoWhileLoop::from(&node)?)),
             _ => {
                 Ok(Statement::Expression(Expression::from(&node)?))
             }
@@ -424,6 +428,7 @@ pub struct TernaryOp {
     pub iftrue: Box<Expression>,
     pub iffalse: Box<Expression>,
 }
+
 impl TernaryOp {
     fn from(node: &JsonNode) -> Result<TernaryOp, AstError> {
         Ok(TernaryOp {
@@ -434,6 +439,37 @@ impl TernaryOp {
     }
 }
 
+pub struct WhileLoop {
+    pub cond: Expression,
+    pub body: Box<Compound>,
+    pub code_loc: String, // needed for scope id
+}
+
+impl WhileLoop {
+    fn from(node: &JsonNode) -> Result<WhileLoop, AstError> {
+        Ok(WhileLoop{
+            cond: Expression::from(&node["cond"])?,
+            body: Box::new(Compound::from(&node["stmt"])?),
+            code_loc: node["coord"].as_str().unwrap().to_string().replace(":","-"),
+        })
+    }
+}
+
+pub struct DoWhileLoop {
+    pub cond: Expression,
+    pub body: Box<Compound>,
+    pub code_loc: String, // needed for scope id
+}
+
+impl DoWhileLoop {
+    fn from(node: &JsonNode) -> Result<DoWhileLoop, AstError> {
+        Ok(DoWhileLoop{
+            cond: Expression::from(&node["cond"])?,
+            body: Box::new(Compound::from(&node["stmt"])?),
+            code_loc: node["coord"].as_str().unwrap().to_string().replace(":","-"),
+        })
+    }
+}
 pub fn get_ast(path_to_c_source: &str) -> RootAstNode {
     assert!(path_to_c_source.ends_with(".c"));
     let output = Command::new(PATH_TO_PY_EXEC)
@@ -623,5 +659,33 @@ mod tests {
             }
             _ => panic!(),
         }
+    }
+    #[test]
+    fn while_loop(){
+        let ast_root = get_ast("tests/compiler_test_data/_loops/inputs/while_single_statement.c");
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[1] {
+                    Statement::WhileLoop(while_stmt) => {
+                        match &while_stmt.cond{
+                            Expression::BinaryOp(bop) => {
+                                match &bop.op_type{
+                                    BinaryopType::LT => {},
+                                    _ => panic!(),
+                                }
+                            },
+                            _ => panic!()
+                        };
+                        match &while_stmt.body.items[0]{
+                            Statement::Assignment(ass) => {},
+                            _ => panic!(),
+                        }
+                    }
+                    _ => panic!()
+                }
+            },
+            _ => panic!()
+        }
+
     }
 }
