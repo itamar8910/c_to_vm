@@ -543,9 +543,13 @@ pub struct FuncCall{
 
 impl FuncCall {
     fn from(node: &JsonNode) -> Result<FuncCall, AstError> {
+        let mut args = Vec::new();
+        for expr in node["args"]["exprs"].as_array().unwrap().iter(){
+            args.push(Box::new(Expression::from(expr)?));
+        }
         Ok(FuncCall{
-            name: "NIL".to_string(),
-            args: Vec::new(),
+            name: node["name"]["name"].as_str().unwrap().to_string(),
+            args: args,
         })
     }
 }
@@ -868,7 +872,7 @@ mod tests {
     }
     #[test]
     fn func_decl_args(){
-        let ast_root = get_ast("tests/compiler_test_data/_functions/inputs/multi_arg.c");
+        let ast_root = get_ast("tests/compiler_test_data/functions/inputs/multi_arg.c");
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 let func_decl = &func_def.decl;
@@ -879,6 +883,34 @@ mod tests {
                 assert_eq!(args[1]._type, "int");
                 assert_eq!(args[2].name, "z");
                 assert_eq!(args[2]._type, "int");
+            },
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn func_call_args(){
+        let ast_root = get_ast("tests/compiler_test_data/functions/inputs/multi_arg.c");
+        match &ast_root.externals[1] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[0]{
+                    Statement::Return(ret) => {
+                        match &ret.expr{
+                            Expression::FuncCall(func_call) => {
+                                assert_eq!(func_call.name, "sub_3");
+                                assert_eq!(func_call.args.len(), 3);
+                                let arg0 = &*func_call.args[0];
+                                match arg0{
+                                    Expression::Constant(c) => {
+                                        assert_eq!(c.val, "10");
+                                    },
+                                    _ => panic!()
+                                }
+                            },
+                            _ => panic!()
+                        }
+                    },
+                    _ => panic!()
+                }
             },
             _ => panic!(),
         }

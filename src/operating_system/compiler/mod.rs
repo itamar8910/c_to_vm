@@ -202,8 +202,24 @@ impl Compiler {
                 code.push(format!("{}:", ternary_end_label));
             },
             Expression::FuncCall(func_call) => {
-                // TODO: impl.
-                //panic!("not yet implemented");
+                let func_data = self.get_func_data(&func_call.name).unwrap();
+                let rettype = func_data.returnType.clone();
+                // push args
+                for arg in func_call.args.iter().rev(){
+                    self.right_gen(&*arg, scope, code);
+                    code.push("PUSH R1".to_string());
+                }
+                // push space for func retval
+                for _ in 0..self.get_type_size(&rettype){
+                    code.push("PUSH ZR".to_string());
+                }
+                code.push(format!("CALL {}", func_call.name));
+                // pop retval to R1
+                code.push("POP R1".to_string());
+                // pop args
+                for arg in func_call.args.iter().rev(){
+                    code.push("POP ZR".to_string());
+                }
             }
         }
     }
@@ -681,7 +697,7 @@ mod tests{
     #[test]
     fn function_args(){
         let mut compiler = Compiler::new();
-        compiler._compile("tests/compiler_test_data/_functions/inputs/multi_arg.c");
+        compiler._compile("tests/compiler_test_data/functions/inputs/multi_arg.c");
         println!("{:?}", compiler.scope_to_data);
         let func_data = compiler.get_func_data(&"sub_3".to_string()).unwrap();
         let scope_data = compiler.get_scope_data(&"sub_3".to_string()).unwrap();
