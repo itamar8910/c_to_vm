@@ -37,12 +37,14 @@ impl RootAstNode {
 
 pub enum External {
     FuncDef(FuncDef),
+    FuncDecl(FuncDecl),
 }
 
 impl External {
     fn from(node: &JsonNode) -> Result<External, AstError> {
         match node["_nodetype"].as_str().unwrap() {
             "FuncDef" => Ok(External::FuncDef(FuncDef::from(&node)?)),
+            "Decl" => Ok(External::FuncDecl(FuncDecl::from(&node)?)),
             _ => {
                 panic!("Invalid external");
             }
@@ -544,8 +546,15 @@ pub struct FuncCall{
 impl FuncCall {
     fn from(node: &JsonNode) -> Result<FuncCall, AstError> {
         let mut args = Vec::new();
-        for expr in node["args"]["exprs"].as_array().unwrap().iter(){
-            args.push(Box::new(Expression::from(expr)?));
+        match &node["args"]{
+            JsonNode::Object(_) => {
+                for expr in node["args"]["exprs"].as_array().unwrap().iter(){
+                    args.push(Box::new(Expression::from(expr)?));
+                }
+            },
+            JsonNode::Null => {},
+            _ => panic!(),
+
         }
         Ok(FuncCall{
             name: node["name"]["name"].as_str().unwrap().to_string(),
@@ -845,7 +854,8 @@ mod tests {
                     },
                     _ => panic!(),
                 }
-            }
+            },
+            _ => panic!(),
         }
     }
 
@@ -867,7 +877,8 @@ mod tests {
                     },
                     _ => panic!(),
                 }
-            }
+            },
+            _ => panic!(),
         }
     }
     #[test]

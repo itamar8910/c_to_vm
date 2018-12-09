@@ -25,12 +25,22 @@ struct VariableData {
 }
 
 #[derive(Debug)]
-struct FuncData {
+struct FuncBodyData {
     name: String,
     regs_used: Vec<Register>,
     local_vars_size: u32,
-    args_types: Vec<String>,
-    returnType: String,
+}
+
+// this is the data that we get once we declare a function
+#[derive(Debug)]
+struct FuncDeclData{
+    args_types : Vec<String>,
+    return_type: String,
+}
+
+struct FuncData{
+    decl_data: FuncDeclData,
+    body_data: Option<FuncBodyData>,
 }
 
 #[derive(Debug)]
@@ -203,7 +213,7 @@ impl Compiler {
             },
             Expression::FuncCall(func_call) => {
                 let func_data = self.get_func_data(&func_call.name).unwrap();
-                let rettype = func_data.returnType.clone();
+                let rettype = func_data.decl_data.return_type.clone();
                 // push args
                 for arg in func_call.args.iter().rev(){
                     self.right_gen(&*arg, scope, code);
@@ -214,8 +224,10 @@ impl Compiler {
                     code.push("PUSH ZR".to_string());
                 }
                 code.push(format!("CALL {}", func_call.name));
-                // pop retval to R1
-                code.push("POP R1".to_string());
+                if self.get_type_size(&rettype) > 0{
+                    // pop retval to R1
+                    code.push("POP R1".to_string());
+                }
                 // pop args
                 for arg in func_call.args.iter().rev(){
                     code.push("POP ZR".to_string());
@@ -247,10 +259,11 @@ impl Compiler {
         let var_data = self.find_variable(var_name, scope).expect(&format!("Variable {} not found", var_name));
         let scope_data = self.get_scope_data(scope).expect("Scope doesn't exist");
         let func_data = self.get_func_data(& scope_data.parent_func).unwrap();
+        let func_body_data = &func_data.body_data.as_ref().expect("Function must be defined");
         let var_offset_from_bp = match var_data.local_or_arg{
-            LocalOrArg::Local => -((1 + func_data.regs_used.len() as u32 + var_data.offset) as i32),
+            LocalOrArg::Local => -((1 + func_body_data.regs_used.len() as u32 + var_data.offset) as i32),
             LocalOrArg::Arg => {
-                let func_retval_size = self.get_type_size(&func_data.returnType);
+                let func_retval_size = self.get_type_size(&func_data.decl_data.return_type);
                 (2 + func_retval_size + var_data.offset) as i32
             }
         };
@@ -287,17 +300,31 @@ impl Compiler {
                 });
                 code.push("JUMP main".to_string());
                 for ext in root_node.externals.iter(){
-                    let External::FuncDef(func_def) = ext;
-                    self.code_gen(AstNode::FuncDef(func_def), &"_GLOBAL".to_string(), code);
+                    match ext{
+                        External::FuncDef(func_def) => {
+                            self.code_gen(AstNode::FuncDef(func_def), &"_GLOBAL".to_string(), code);
+                        },
+                        External::FuncDecl(func_decl) => {
+                            self.code_gen(AstNode::FuncDecl(func_decl), &"_GLOBAL".to_string(), code);
+                        }
+                    }
                 }
             },
+            AstNode::FuncDecl(func_decl) => {
+                let func_name = &func_decl.name;
+                if !self.scope_to_data.contains_key(func_name){
+                    self.register_func_decl(func_decl);
+                }
+            }
             AstNode::FuncDef(func_def) => {
                 let func_name = &func_def.decl.name;
                 code.push(format!("{}:", func_name));
-                self.regiser_function(func_def, scope);
+                self.register_func_decl(&func_def.decl);
+                self.regiser_func_body(&func_def.body, &func_def.decl, scope);
                 {
                     // NLL workaround
                     let func_data = self.get_func_data(func_name).unwrap();
+                    let func_data = &func_data.body_data.as_ref().unwrap();
                     println!("regs used:{:?}", func_data.regs_used);
                     // save registers
                     for reg in func_data.regs_used.iter() {
@@ -318,6 +345,7 @@ impl Compiler {
 
                 // restore registers
                 let func_data = self.get_func_data(&func_name).unwrap();
+                let func_data = &func_data.body_data.as_ref().unwrap();
                 let _scope_data = self.get_scope_data(func_name).unwrap();
                 // dealocate stack space of local variables
                     for _ in 0..func_data.local_vars_size {
@@ -597,19 +625,32 @@ impl Compiler {
         self.scope_to_data.insert(scope_name.clone(), scope_data);
     }
 
-    // registers function's data, returns its name
-    fn regiser_function(&mut self, func_def: &FuncDef, parent_scope: &String) {
-        let func_name = &func_def.decl.name;
+    fn register_func_decl(&mut self, func_decl: &FuncDecl){
+        let mut args_types = Vec::new();
+        for arg in func_decl.args.iter(){
+            args_types.push(arg._type.clone());
+        }
+        let func_data = FuncData{
+            decl_data: FuncDeclData{
+                args_types: args_types,
+                return_type: func_decl.ret_type.clone(),
+            },
+            body_data: None,
+        };
+        self.func_to_data.insert(func_decl.name.clone(), func_data);
+    }
+
+    fn regiser_func_body(&mut self, func_body: &Compound, func_decl: &FuncDecl, parent_scope: &String){
+        let func_name = &func_decl.name;
         let mut vars_size : u32 = 0;
-        self.register_scope(func_name, &func_def.body.items, parent_scope, func_name, &mut vars_size);
+        self.register_scope(func_name, &func_body.items, parent_scope, func_name, &mut vars_size);
 
         let regs_used = vec![Register::R1, Register::R2];
-        let funcret_type = String::from("int");
+        let funcret_type = func_decl.ret_type.clone();
         // insert local variables to scope's variables
         let mut cur_arg_offset : u32 = 0;
-        let mut args_types = Vec::new();
         let mut args_variables = HashMap::new();
-        for arg in func_def.decl.args.iter(){
+        for arg in func_decl.args.iter(){
             let arg_type_size = self.get_type_size(&arg._type.clone());
             args_variables.insert(arg.name.clone(), VariableData{
                 name: arg.name.clone(), 
@@ -618,7 +659,6 @@ impl Compiler {
                 offset: cur_arg_offset,
                 size: arg_type_size, 
             });
-            args_types.push(arg._type.clone());
             cur_arg_offset += arg_type_size;
         }
         let func_scope = self.get_scope_data_mut(func_name).unwrap();
@@ -628,15 +668,15 @@ impl Compiler {
         }
         func_scope.variables.extend(args_variables);
         
-        let func_data = FuncData {
-            name: func_name.clone(),
+
+        let func_data = self.func_to_data.get_mut(&func_decl.name).expect("function not yet declared");
+        func_data.body_data = Some(FuncBodyData{
+            name: func_decl.name.clone(),
             regs_used: regs_used,
             local_vars_size: vars_size.clone(),
-            args_types: args_types,
-            returnType: funcret_type,
-        };
-        self.func_to_data.insert(func_name.clone(), func_data);
+        });
     }
+
 
     fn get_func_data(&self, func_name: &String) -> Option<&FuncData> {
         self.func_to_data.get(func_name)
@@ -645,7 +685,6 @@ impl Compiler {
     fn _compile(&mut self, path_to_c_source: &str) -> Vec<String> {
         let mut code: Vec<String> = Vec::new();
         let ast = AST::get_ast(path_to_c_source);
-
         self.code_gen(AstNode::RootAstNode(&ast), &"_GLOBAL".to_string(), &mut code);
 
         code
@@ -701,9 +740,9 @@ mod tests{
         println!("{:?}", compiler.scope_to_data);
         let func_data = compiler.get_func_data(&"sub_3".to_string()).unwrap();
         let scope_data = compiler.get_scope_data(&"sub_3".to_string()).unwrap();
-        assert_eq!(func_data.args_types[0], "int");
-        assert_eq!(func_data.args_types[1], "int");
-        assert_eq!(func_data.args_types[2], "int");
+        assert_eq!(func_data.decl_data.args_types[0], "int");
+        assert_eq!(func_data.decl_data.args_types[1], "int");
+        assert_eq!(func_data.decl_data.args_types[2], "int");
         let x = scope_data.variables.get(&"x".to_string()).unwrap();
         assert_eq!(x.offset, 0);
         let y = scope_data.variables.get(&"y".to_string()).unwrap();
