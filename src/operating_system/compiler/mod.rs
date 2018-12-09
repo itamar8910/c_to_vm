@@ -10,8 +10,15 @@ use std::collections::HashSet;
 use self::serde_json::Value as Node;
 
 #[derive(Debug)]
+enum LocalOrArg{
+    Local,
+    Arg,
+}
+
+#[derive(Debug)]
 struct VariableData {
     name: String,
+    local_or_arg: LocalOrArg,
     varType: String,
     offset: u32,
     size: u32,
@@ -22,6 +29,7 @@ struct FuncData {
     name: String,
     regs_used: Vec<Register>,
     local_vars_size: u32,
+    args_types: Vec<String>,
     returnType: String,
 }
 
@@ -192,6 +200,10 @@ impl Compiler {
                 code.push(format!("{}:", neg_label));
                 self.right_gen(&*top.iffalse, &scope, code);
                 code.push(format!("{}:", ternary_end_label));
+            },
+            Expression::FuncCall(func_call) => {
+                // TODO: impl.
+                //panic!("not yet implemented");
             }
         }
     }
@@ -219,7 +231,13 @@ impl Compiler {
         let var_data = self.find_variable(var_name, scope).expect(&format!("Variable {} not found", var_name));
         let scope_data = self.get_scope_data(scope).expect("Scope doesn't exist");
         let func_data = self.get_func_data(& scope_data.parent_func).unwrap();
-        let var_offset_from_bp = -((1 + func_data.regs_used.len() as u32 + var_data.offset) as i32);
+        let var_offset_from_bp = match var_data.local_or_arg{
+            LocalOrArg::Local => -((1 + func_data.regs_used.len() as u32 + var_data.offset) as i32),
+            LocalOrArg::Arg => {
+                let func_retval_size = self.get_type_size(&func_data.returnType);
+                (2 + func_retval_size + var_data.offset) as i32
+            }
+        };
         code.push(format!("ADD R1 BP {}", var_offset_from_bp));
     }
 
@@ -240,8 +258,26 @@ impl Compiler {
     // an example for usefulness of this is knowing which registers we need to save in a function.
     fn code_gen(&mut self, node: AST::AstNode, scope: &String, code: &mut Vec<String>) {
         match node {
+            AstNode::RootAstNode(root_node) => {
+                // insert global scope
+                self.scope_to_data.insert("_GLOBAL".to_string(), ScopeData {
+                    name: "_GLOBAL".to_string(),
+                    parent_scope: "_GLOBAL".to_string(),
+                    parent_func:  "_GLOBAL".to_string(),
+                    variables: HashMap::new(),
+                    declared_variables: HashSet::new(),
+                    break_label: None,
+                    continue_label: None
+                });
+                code.push("JUMP main".to_string());
+                for ext in root_node.externals.iter(){
+                    let External::FuncDef(func_def) = ext;
+                    self.code_gen(AstNode::FuncDef(func_def), &"_GLOBAL".to_string(), code);
+                }
+            },
             AstNode::FuncDef(func_def) => {
                 let func_name = &func_def.decl.name;
+                code.push(format!("{}:", func_name));
                 self.regiser_function(func_def, scope);
                 {
                     // NLL workaround
@@ -427,6 +463,8 @@ impl Compiler {
             if let Some(x) = scope_data.variables.get(var_name.as_str()){
                 if scope_data.declared_variables.contains(var_name){
                     return Some(x);
+                }else{
+                    println!("found var {} in scope but it isn't declared yet", var_name);
                 }
             }
             {
@@ -445,7 +483,11 @@ impl Compiler {
     }
 
     fn get_type_size(&self, _type: &String) -> u32 {
-        1 // TODO: generalize
+        match _type.as_str(){
+            "int" => 1,
+            "void" => 0,
+            _ => panic!("invalid type")
+        }
     }
 
     fn register_scope(&mut self, scope_name: &String, statements: &Vec<Statement>, parent_scope_name: &String, parent_func_name: &String, current_var_offset: & mut u32){
@@ -462,6 +504,7 @@ impl Compiler {
                         var_name.clone(),
                         VariableData {
                             name: var_name.clone(),
+                            local_or_arg: LocalOrArg::Local,
                             varType: var_type.clone(),
                             offset: next_var_offset.clone(),
                             size: var_size,
@@ -504,6 +547,7 @@ impl Compiler {
                                         var_name.clone(),
                                         VariableData {
                                             name: var_name.clone(),
+                                            local_or_arg: LocalOrArg::Local,
                                             varType: var_type.clone(),
                                             offset: next_var_offset.clone(),
                                             size: var_size,
@@ -545,10 +589,34 @@ impl Compiler {
 
         let regs_used = vec![Register::R1, Register::R2];
         let funcret_type = String::from("int");
+        // insert local variables to scope's variables
+        let mut cur_arg_offset : u32 = 0;
+        let mut args_types = Vec::new();
+        let mut args_variables = HashMap::new();
+        for arg in func_def.decl.args.iter(){
+            let arg_type_size = self.get_type_size(&arg._type.clone());
+            args_variables.insert(arg.name.clone(), VariableData{
+                name: arg.name.clone(), 
+                local_or_arg: LocalOrArg::Arg,
+                varType: arg._type.clone(),
+                offset: cur_arg_offset,
+                size: arg_type_size, 
+            });
+            args_types.push(arg._type.clone());
+            cur_arg_offset += arg_type_size;
+        }
+        let func_scope = self.get_scope_data_mut(func_name).unwrap();
+        // function args are automatically declared
+        for (_, arg) in &args_variables{
+            func_scope.declared_variables.insert(arg.name.clone());
+        }
+        func_scope.variables.extend(args_variables);
+        
         let func_data = FuncData {
             name: func_name.clone(),
             regs_used: regs_used,
             local_vars_size: vars_size.clone(),
+            args_types: args_types,
             returnType: funcret_type,
         };
         self.func_to_data.insert(func_name.clone(), func_data);
@@ -562,21 +630,7 @@ impl Compiler {
         let mut code: Vec<String> = Vec::new();
         let ast = AST::get_ast(path_to_c_source);
 
-        self.scope_to_data.insert("_GLOBAL".to_string(), ScopeData {
-            name: "_GLOBAL".to_string(),
-            parent_scope: "_GLOBAL".to_string(),
-            parent_func:  "_GLOBAL".to_string(),
-            variables: HashMap::new(),
-            declared_variables: HashSet::new(),
-            break_label: None,
-            continue_label: None
-        });
-        let External::FuncDef(main_func) = &ast.externals[0];
-        let main_decl = &main_func.decl;
-        assert_eq!(main_decl.name, "main".to_string());
-        assert_eq!(main_decl.ret_type, "int".to_string());
-
-        self.code_gen(AstNode::FuncDef(&main_func), &"_GLOBAL".to_string(), &mut code);
+        self.code_gen(AstNode::RootAstNode(&ast), &"_GLOBAL".to_string(), &mut code);
 
         code
     }
@@ -623,6 +677,23 @@ mod tests{
             },
             _ => panic!()
         }
+    }
+    #[test]
+    fn function_args(){
+        let mut compiler = Compiler::new();
+        compiler._compile("tests/compiler_test_data/_functions/inputs/multi_arg.c");
+        println!("{:?}", compiler.scope_to_data);
+        let func_data = compiler.get_func_data(&"sub_3".to_string()).unwrap();
+        let scope_data = compiler.get_scope_data(&"sub_3".to_string()).unwrap();
+        assert_eq!(func_data.args_types[0], "int");
+        assert_eq!(func_data.args_types[1], "int");
+        assert_eq!(func_data.args_types[2], "int");
+        let x = scope_data.variables.get(&"x".to_string()).unwrap();
+        assert_eq!(x.offset, 0);
+        let y = scope_data.variables.get(&"y".to_string()).unwrap();
+        assert_eq!(y.offset, 1);
+        let z = scope_data.variables.get(&"z".to_string()).unwrap();
+        assert_eq!(z.offset, 2);
     }
 
 

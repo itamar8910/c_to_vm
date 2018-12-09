@@ -65,15 +65,30 @@ impl FuncDef {
 
 pub struct FuncDecl {
     pub name: String,
-    pub args_type: Vec<String>,
+    pub args: Vec<Decl>,
     pub ret_type: String,
 }
 impl FuncDecl {
     fn from(node: &JsonNode) -> Result<FuncDecl, AstError> {
+        let mut args = Vec::new();
+        match node["type"]["args"]{
+            JsonNode::Object(_) => {
+                for arg in node["type"]["args"]["params"].as_array().unwrap().iter(){
+                    args.push(
+                        Decl{
+                            name: arg["name"].as_str().unwrap().to_string(),
+                            _type: arg["type"]["type"]["names"].as_array().unwrap()[0].as_str().unwrap().to_string(),
+                            init: None,
+                        }
+                    );
+                }
+            },
+            _ => {},
+        }
         Ok(FuncDecl {
             name: node["name"].as_str().unwrap().to_string(),
-            args_type: vec!["int".to_string()],
-            ret_type: "int".to_string(),
+            args: args,
+            ret_type: node["type"]["type"]["type"]["names"].as_array().unwrap()[0].as_str().unwrap().to_string(),
         })
     }
 }
@@ -191,6 +206,7 @@ pub enum Expression {
     ID(ID),
     Assignment(Assignment),
     TernaryOp(TernaryOp),
+    FuncCall(FuncCall),
 }
 
 impl Expression {
@@ -202,6 +218,7 @@ impl Expression {
             "ID" => Ok(Expression::ID(ID::from(&node)?)),
             "Assignment" => Ok(Expression::Assignment(Assignment::from(&node)?)),
             "TernaryOp" => Ok(Expression::TernaryOp(TernaryOp::from(&node)?)),
+            "FuncCall" => Ok(Expression::FuncCall(FuncCall::from(&node)?)),
             _ => {
                 panic!(format!(
                     "Invalid expression type:{}",
@@ -515,6 +532,20 @@ impl ForLoop {
             body: Box::new(Compound::from(&node["stmt"])?),
             next: maybe_get_boxed_compound(node, "next"),
             code_loc: node["coord"].as_str().unwrap().to_string().replace(":","-"),
+        })
+    }
+}
+
+pub struct FuncCall{
+    pub name: String,
+    pub args: Vec<Box<Expression>>,
+}
+
+impl FuncCall {
+    fn from(node: &JsonNode) -> Result<FuncCall, AstError> {
+        Ok(FuncCall{
+            name: "NIL".to_string(),
+            args: Vec::new(),
         })
     }
 }
@@ -833,6 +864,23 @@ mod tests {
                     _ => panic!(),
                 }
             }
+        }
+    }
+    #[test]
+    fn func_decl_args(){
+        let ast_root = get_ast("tests/compiler_test_data/_functions/inputs/multi_arg.c");
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                let func_decl = &func_def.decl;
+                let args = &func_decl.args;
+                assert_eq!(args[0].name, "x");
+                assert_eq!(args[0]._type, "int");
+                assert_eq!(args[1].name, "y");
+                assert_eq!(args[1]._type, "int");
+                assert_eq!(args[2].name, "z");
+                assert_eq!(args[2]._type, "int");
+            },
+            _ => panic!(),
         }
     }
 }
