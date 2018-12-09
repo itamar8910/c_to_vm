@@ -1,4 +1,5 @@
-int putchar(int c);
+int putchar(int c){
+}
 
 int main() {
     putchar(72);
@@ -15,4 +16,5 @@ int main() {
     putchar(100);
     putchar(33);
     putchar(10);
+    return 0;
 }

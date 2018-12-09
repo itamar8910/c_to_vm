@@ -114,7 +114,10 @@ impl Compound {
             else{
                 match node["block_items"] {
                     JsonNode::Null => {
-                        statements.push(Statement::from(&node)?);
+                        // to avoid infinite recursion
+                        if node_type != "Compound"{
+                            statements.push(Statement::from(&node)?);
+                        }
                     }
                     _ => {
                         for statement_node in node["block_items"].as_array().unwrap().iter() {
