@@ -1,6 +1,9 @@
 pub mod assembler;
 pub mod compiler;
 
+use std::collections::HashMap;
+use std::collections::HashSet;
+
 use self::assembler::assemble;
 use crate::cpu::instructions::*;
 use crate::cpu::Cpu;
@@ -93,7 +96,7 @@ impl OS {
         self.cpu.mem.set(INIT_SP_ADDRESS, MemEntry::Num(-1)); // deafult return value = -1
     }
 
-    fn load_program(&mut self, instructions: Vec<Instruction>, init_addr: u32) {
+    fn load_program(&mut self, instructions: &Vec<Instruction>, init_addr: u32) {
         for (instr_i, instr) in instructions.iter().enumerate() {
             self.cpu.mem.set(
                 init_addr + (instr_i as u32),
@@ -106,7 +109,7 @@ impl OS {
     // returns program's exit value
     pub fn run_program(&mut self, instructions: Vec<Instruction>) -> i32 {
         self.reset_cpu_state();
-        self.load_program(instructions, PROGRAM_INIT_ADDRESS);
+        self.load_program(&instructions, PROGRAM_INIT_ADDRESS);
         self.cpu
             .regs
             .set(&Register::IR, PROGRAM_INIT_ADDRESS as i32);
@@ -122,18 +125,28 @@ impl OS {
         self.run_program(instructions)
     }
 
-    pub fn debug_program(&mut self, instructions: Vec<Instruction>) -> i32{
+    pub fn debug_program(&mut self, instructions: Vec<Instruction>, symbol_table: HashMap<String, u32>) -> i32{
         self.reset_cpu_state();
-        self.load_program(instructions, PROGRAM_INIT_ADDRESS);
+        self.load_program(&instructions, PROGRAM_INIT_ADDRESS);
         self.cpu
             .regs
             .set(&Register::IR, PROGRAM_INIT_ADDRESS as i32);
         self.initialize_stackframe();
-
-        loop{
+        let mut breakpoints : HashSet<u32> = HashSet::new();
+        let mut running = false;
+        let mut keep_running = true;
+        while keep_running{
+            let cur_instr_addr = self.cpu.regs.get(&Register::IR);
+            // println!("{}: {}", cur_instr_addr - PROGRAM_INIT_ADDRESS as i32, self.cpu.fetch().to_str());
+            if breakpoints.contains(&(cur_instr_addr as u32 - PROGRAM_INIT_ADDRESS)){
+                running = false;
+            }
+            if running{
+                keep_running = self.cpu.step();
+                continue;
+            }
             let next_instr = self.cpu.fetch();
             println!("{}: {}", self.cpu.regs.get(&Register::IR) - PROGRAM_INIT_ADDRESS as i32, next_instr.to_str());
-            let keep_running = self.cpu.step();
             use std::io::{stdin,stdout,Write};
             let mut cmd = String::new();
             if let Some('\n')=cmd.chars().next_back() {
@@ -141,18 +154,28 @@ impl OS {
             }
             stdin().read_line(&mut cmd).expect("");
             let args: Vec<&str> = cmd.split_whitespace().collect();
+            if args.len() == 0{
+                continue;
+            }
+            if args[0] == "continue"{
+                running = true;
+            }
             if args[0] == "step"{
-
+                keep_running = self.cpu.step();
             }
             if args[0] == "reg"{
                 let reg = register_from_str(args[1]).unwrap();
                 let reg_val = self.cpu.regs.get(&reg);
                 println!("{}", reg_val);
             }
-            
-            if !keep_running{
-                break;
+            if args[0] == "break"{
+                let line = args[1];
+                let instr_i = symbol_table.get(&format!("_LINE_{}", line)).expect("invalid breakpoint line");
+                println!("break instr: {:?}", &instructions[*instr_i as usize]);
+                breakpoints.insert(*instr_i);
+
             }
+            
         }
 
         let bp = self.cpu.regs.get(&Register::BP);
@@ -160,8 +183,8 @@ impl OS {
     }
 
     pub fn assemble_and_debug(&mut self, program: &str) -> i32 {
-        let (instructions, _) = assemble(program);
-        self.debug_program(instructions)
+        let (instructions, symbol_table) = assemble(program);
+        self.debug_program(instructions, symbol_table)
     }
 
 }

@@ -41,14 +41,14 @@ fn maybe_parse_instruction(
 }
 
 pub fn assemble(program: &str) -> (Vec<Instruction>, HashMap<String, u32>) {
-    println!("assembling program:{}", program);
     let mut symbol_table = HashMap::new();
     let mut instructions = Vec::new();
     let mut cur_rel_address = 0;
 
     // first pass, create symbol table
     let lines: Vec<&str> = program.split("\n").collect();
-    for line in lines.iter() {
+    for (line_i, line) in lines.iter().enumerate() {
+        symbol_table.insert(format!("_LINE_{}", line_i.to_string()), cur_rel_address);
         if let Some(label) = get_label_from_line(line) {
             symbol_table.insert(label, cur_rel_address);
         } else if is_instruction(line) {

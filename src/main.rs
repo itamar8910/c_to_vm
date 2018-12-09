@@ -12,7 +12,11 @@ fn main() {
     }
     println!("compiling: {}", args[2]);
     let program = Compiler::compile(&args[2]);
-    println!("finished compiling");
+    let lines: Vec<&str> = program.split("\n").collect();
+    for (line_i, line) in lines.iter().enumerate(){
+        println!("{}: {}", line_i, line);
+    }
+    println!("RUNNING");
     let mut os = OS::new();
     let mut res = -1;
     if args[1] == "run"{
@@ -22,7 +26,6 @@ fn main() {
     }else{
         panic!("invalid run mode")
     }
-    println!("{}", program);
     println!("-----");
     println!("Return code:{}", res);
 }
