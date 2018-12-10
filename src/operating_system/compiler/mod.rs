@@ -15,13 +15,37 @@ enum LocalOrArg{
     Arg,
 }
 
+
+#[derive(Debug)]
+enum VariableType {
+    Regular {_type: String},
+    Array {_type: String, dimentions: Vec<u32>},
+}
+
+impl VariableType{
+    fn from(decl: &Decl) -> VariableType{
+        match decl{
+            Decl::VarDecl(var_decl) => VariableType::Regular{
+                _type: var_decl._type.clone(),
+            },
+            Decl::ArrayDecl(arr_decl) => VariableType::Array{
+                _type: arr_decl._type.clone(),
+                dimentions: arr_decl.dimentions.clone(),
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 struct VariableData {
     name: String,
     local_or_arg: LocalOrArg,
-    varType: String,
+    var_type: VariableType,
     offset: u32,
     size: u32,
+}
+
+impl VariableData{
 }
 
 #[derive(Debug)]
@@ -34,7 +58,7 @@ struct FuncBodyData {
 // this is the data that we get once we declare a function
 #[derive(Debug)]
 struct FuncDeclData{
-    args_types : Vec<String>,
+    args_types : Vec<VariableType>,
     return_type: String,
 }
 
@@ -389,14 +413,19 @@ impl Compiler {
                         code.push(format!("JUMP _{}_END", self.get_scope_data(scope).unwrap().parent_func));
                     }
                     Statement::Decl(decl) => {
-                        self.update_var_declared(&decl.name, scope);
-                        if let Some(expr) = &decl.init {
-                            // if decleration is also initialization
-                            self.codegen_load_addr_of_var(&decl.name, &scope, code);
-                            code.push("PUSH R1".to_string());
-                            self.right_gen(&expr, &scope, code);
-                            code.push("POP R2".to_string());
-                            code.push("STR R2 R1".to_string());
+                        match decl{
+                            Decl::VarDecl(var_decl) => {
+                                self.update_var_declared(&var_decl.name, scope);
+                                if let Some(expr) = &var_decl.init {
+                                    // if decleration is also initialization
+                                    self.codegen_load_addr_of_var(&var_decl.name, &scope, code);
+                                    code.push("PUSH R1".to_string());
+                                    self.right_gen(&expr, &scope, code);
+                                    code.push("POP R2".to_string());
+                                    code.push("STR R2 R1".to_string());
+                                }
+                            },
+                            _ => panic!("not yet implemented"),
                         }
                     }
                     Statement::Assignment(ass) => {
@@ -550,7 +579,38 @@ impl Compiler {
             _ => panic!("invalid type")
         }
     }
-
+    fn get_array_size(&self, item_type: &String, dimentions: &Vec<u32>) -> u32{
+        // this needs to be a member function because for example we could
+        // have an array of structs, so we need access to the compiler's
+        // data in order to know that size of each element in the array
+        let mut size = 0;
+        for x in dimentions.iter(){
+            size *= x;
+        }
+        size * self.get_type_size(item_type)
+    }
+    fn variable_data_from_decl(&self, decl: &Decl, local_or_arg: LocalOrArg, offset: &u32) -> VariableData{
+        match decl{
+            Decl::VarDecl(var_decl) => {
+                VariableData{
+                    name: var_decl.name.clone(),
+                    local_or_arg: local_or_arg,
+                    var_type: VariableType::from(decl),
+                    offset: *offset,
+                    size: 1,
+                }
+            },
+            Decl::ArrayDecl(arr_decl) => {
+                VariableData{
+                    name: arr_decl.name.clone(),
+                    local_or_arg: local_or_arg,
+                    var_type: VariableType::from(decl),
+                    offset: *offset,
+                    size: self.get_array_size(&arr_decl._type, &arr_decl.dimentions)
+                }
+            }
+        }
+    }
     fn register_scope(&mut self, scope_name: &String, statements: &Vec<Statement>, parent_scope_name: &String, parent_func_name: &String, current_var_offset: & mut u32){
         // collect variables
         let next_var_offset = current_var_offset;
@@ -558,20 +618,9 @@ impl Compiler {
         for statement in statements.iter() {
             match statement{
                 Statement::Decl(decl) => {
-                    let var_name = &decl.name;
-                    let var_type = &decl._type;
-                    let var_size = self.get_type_size(&var_type);
-                    variables.insert(
-                        var_name.clone(),
-                        VariableData {
-                            name: var_name.clone(),
-                            local_or_arg: LocalOrArg::Local,
-                            varType: var_type.clone(),
-                            offset: next_var_offset.clone(),
-                            size: var_size,
-                        },
-                    );
-                    *next_var_offset += var_size;
+                    let var_data = self.variable_data_from_decl(&decl, LocalOrArg::Local, &next_var_offset.clone());
+                    *next_var_offset += &var_data.size;
+                    variables.insert(var_data.name.clone(), var_data);
 
                 },
                 Statement::Compound(comp) => {
@@ -601,20 +650,9 @@ impl Compiler {
                         for stmt in init.items.iter(){
                             match stmt{
                                 Statement::Decl(decl) => {
-                                    let var_name = &decl.name;
-                                    let var_type = &decl._type;
-                                    let var_size = self.get_type_size(&var_type);
-                                    for_init_vars.insert(
-                                        var_name.clone(),
-                                        VariableData {
-                                            name: var_name.clone(),
-                                            local_or_arg: LocalOrArg::Local,
-                                            varType: var_type.clone(),
-                                            offset: next_var_offset.clone(),
-                                            size: var_size,
-                                        },
-                                    );
-                                    *next_var_offset += var_size;
+                                    let var_data = self.variable_data_from_decl(&decl, LocalOrArg::Local, &next_var_offset.clone());
+                                    *next_var_offset += var_data.size;
+                                    for_init_vars.insert(var_data.name.clone(), var_data);
                                 },
                                 _ => {},
                             }
@@ -645,7 +683,7 @@ impl Compiler {
     fn register_func_decl(&mut self, func_decl: &FuncDecl){
         let mut args_types = Vec::new();
         for arg in func_decl.args.iter(){
-            args_types.push(arg._type.clone());
+            args_types.push(VariableType::from(arg));
         }
         let func_data = FuncData{
             decl_data: FuncDeclData{
@@ -668,15 +706,9 @@ impl Compiler {
         let mut cur_arg_offset : u32 = 0;
         let mut args_variables = HashMap::new();
         for arg in func_decl.args.iter(){
-            let arg_type_size = self.get_type_size(&arg._type.clone());
-            args_variables.insert(arg.name.clone(), VariableData{
-                name: arg.name.clone(), 
-                local_or_arg: LocalOrArg::Arg,
-                varType: arg._type.clone(),
-                offset: cur_arg_offset,
-                size: arg_type_size, 
-            });
-            cur_arg_offset += arg_type_size;
+            let var_data = self.variable_data_from_decl(arg, LocalOrArg::Arg, &cur_arg_offset);
+            cur_arg_offset += &var_data.size;
+            args_variables.insert(var_data.name.clone(), var_data);
         }
         let func_scope = self.get_scope_data_mut(func_name).unwrap();
         // function args are automatically declared
@@ -757,9 +789,26 @@ mod tests{
         println!("{:?}", compiler.scope_to_data);
         let func_data = compiler.get_func_data(&"sub_3".to_string()).unwrap();
         let scope_data = compiler.get_scope_data(&"sub_3".to_string()).unwrap();
-        assert_eq!(func_data.decl_data.args_types[0], "int");
-        assert_eq!(func_data.decl_data.args_types[1], "int");
-        assert_eq!(func_data.decl_data.args_types[2], "int");
+        match &func_data.decl_data.args_types[0]{
+            VariableType::Regular{_type} => {
+                assert_eq!(_type, "int");
+            },
+            _ => panic!(),
+        }
+        match &func_data.decl_data.args_types[1]{
+            VariableType::Regular{_type} => {
+                assert_eq!(_type, "int");
+            },
+            _ => panic!(),
+        }
+        match &func_data.decl_data.args_types[2]{
+            VariableType::Regular{_type} => {
+                assert_eq!(_type, "int");
+            },
+            _ => panic!(),
+        }
+        // assert_eq!(func_data.decl_data.args_types[1], "int");
+        // assert_eq!(func_data.decl_data.args_types[2], "int");
         let x = scope_data.variables.get(&"x".to_string()).unwrap();
         assert_eq!(x.offset, 0);
         let y = scope_data.variables.get(&"y".to_string()).unwrap();

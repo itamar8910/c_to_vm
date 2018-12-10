@@ -77,11 +77,7 @@ impl FuncDecl {
             JsonNode::Object(_) => {
                 for arg in node["type"]["args"]["params"].as_array().unwrap().iter(){
                     args.push(
-                        Decl{
-                            name: arg["name"].as_str().unwrap().to_string(),
-                            _type: get_type(arg),
-                            init: None,
-                        }
+                        Decl::from(arg).unwrap()
                     );
                 }
             },
@@ -181,14 +177,27 @@ impl Return {
     }
 }
 
-pub struct Decl {
+pub enum Decl{
+    VarDecl(VarDecl),
+    ArrayDecl(ArrayDecl),
+}
+
+impl Decl {
+    fn from(node: &JsonNode) -> Result<Decl, AstError> {
+        match get_type(node).as_str(){
+            "ArrayDecl" => Ok(Decl::ArrayDecl(ArrayDecl::from(node)?)),
+            _ => Ok(Decl::VarDecl(VarDecl::from(node)?)),
+        }
+    }
+}
+pub struct VarDecl {
     pub name: String,
     pub _type: String,
     pub init: Option<Expression>,
 }
 
-impl Decl {
-    fn from(node: &JsonNode) -> Result<Decl, AstError> {
+impl VarDecl {
+    fn from(node: &JsonNode) -> Result<VarDecl, AstError> {
         let name = node["name"].as_str().unwrap().to_string();
         let mut _type = get_type(node);
         let init = match node["init"] {
@@ -196,10 +205,27 @@ impl Decl {
             JsonNode::Null => None,
             _ => panic!("Invalid decl init type"),
         };
-        Ok(Decl {
+        Ok(VarDecl {
             name: name,
             _type: _type.to_string(),
             init: init,
+        })
+    }
+}
+
+pub struct ArrayDecl{
+  pub name: String,
+  pub _type: String,
+  pub dimentions: Vec<u32>,
+}
+
+impl ArrayDecl {
+    fn from(node: &JsonNode) -> Result<ArrayDecl, AstError> {
+        // TODO: impl.
+        Ok(ArrayDecl{
+            name: "NIL".to_string(),
+            _type: "NIL".to_string(),
+            dimentions: vec![],
         })
     }
 }
@@ -653,14 +679,19 @@ mod tests {
                 assert_eq!(func_def.decl.ret_type, "int");
                 match &func_def.body.items[0] {
                     Statement::Decl(decl) => {
-                        assert_eq!(decl.name, "a");
-                        assert_eq!(decl._type, "int");
-                        if let Some(Expression::Constant(c)) = &decl.init {
-                            assert_eq!(c.val, "2");
-                        } else {
-                            panic!();
+                        match decl{
+                            Decl::VarDecl(var_decl) => {
+                                assert_eq!(var_decl.name, "a");
+                                assert_eq!(var_decl._type, "int");
+                                if let Some(Expression::Constant(c)) = &var_decl.init {
+                                    assert_eq!(c.val, "2");
+                                } else {
+                                    panic!();
+                                }
+                            },
+                            _ => panic!(),
                         }
-                    }
+                }
                     _ => panic!(),
                 }
             }
@@ -881,7 +912,12 @@ mod tests {
                         let init = &fl.init.as_ref().unwrap();
                         match &init.items[0]{
                             Statement::Decl(d) => {
-                                assert_eq!(d.name, "i");
+                                match d{
+                                    Decl::VarDecl(var_decl) => {
+                                        assert_eq!(var_decl.name, "i");
+                                    },
+                                    _ => panic!(),
+                                }
                             },
                             _ => panic!()
                         }
@@ -900,12 +936,27 @@ mod tests {
             External::FuncDef(func_def) => {
                 let func_decl = &func_def.decl;
                 let args = &func_decl.args;
-                assert_eq!(args[0].name, "x");
-                assert_eq!(args[0]._type, "int");
-                assert_eq!(args[1].name, "y");
-                assert_eq!(args[1]._type, "int");
-                assert_eq!(args[2].name, "z");
-                assert_eq!(args[2]._type, "int");
+                match &args[0]{
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "x");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
+                match &args[1]{
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "y");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
+                match &args[2]{
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "z");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
             },
             _ => panic!(),
         }
