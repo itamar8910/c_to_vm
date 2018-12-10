@@ -79,7 +79,7 @@ impl FuncDecl {
                     args.push(
                         Decl{
                             name: arg["name"].as_str().unwrap().to_string(),
-                            _type: arg["type"]["type"]["names"].as_array().unwrap()[0].as_str().unwrap().to_string(),
+                            _type: get_type(arg),
                             init: None,
                         }
                     );
@@ -190,7 +190,7 @@ pub struct Decl {
 impl Decl {
     fn from(node: &JsonNode) -> Result<Decl, AstError> {
         let name = node["name"].as_str().unwrap().to_string();
-        let _type = "int".to_string(); // TODO: generalize
+        let mut _type = get_type(node);
         let init = match node["init"] {
             JsonNode::Object(_) => Some(Expression::from(&node["init"])?),
             JsonNode::Null => None,
@@ -198,10 +198,15 @@ impl Decl {
         };
         Ok(Decl {
             name: name,
-            _type: _type,
+            _type: _type.to_string(),
             init: init,
         })
     }
+}
+
+fn get_type(node: &JsonNode) -> String{
+    let t = if node["type"]["_nodetype"].as_str().unwrap() == "PtrDecl" {"int*"} else {"int"};
+    t.to_string()
 }
 
 pub enum Expression {
@@ -364,6 +369,8 @@ pub enum UnaryopType {
     PPX, // ++x
     XMM, // x--
     MMX, // --x
+    REF, // &
+    DEREF, // *
 }
 
 pub struct ID {
@@ -388,6 +395,8 @@ impl UnaryopType {
             "++" => Ok(UnaryopType::PPX),
             "p--" => Ok(UnaryopType::XMM),
             "--" => Ok(UnaryopType::MMX),
+            "&" => Ok(UnaryopType::REF),
+            "*" => Ok(UnaryopType::DEREF),
             _ => {
                 panic!("Unkown Unary type:{}", node.as_str().unwrap());
             }

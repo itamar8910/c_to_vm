@@ -187,6 +187,13 @@ impl Compiler {
                         ));
                         code.push("STR R1 R2".to_string());
                         code.push("POP R1".to_string());
+                    },
+                    UnaryopType::REF => {
+                        self.left_gen(&op.expr, scope, code);
+                    },
+                    UnaryopType::DEREF => {
+                        self.right_gen(&op.expr, scope, code);
+                        code.push("LOAD R1 R1".to_string());
                     }
                 }
             }
@@ -276,6 +283,15 @@ impl Compiler {
             Expression::ID(id) => {
                 let var_name = &id.name;
                 self.codegen_load_addr_of_var(&var_name, &scope, code);
+            }
+            Expression::UnaryOp(uop) => {
+                match uop.op_type{
+                    UnaryopType::DEREF => {
+                        self.left_gen(&uop.expr, scope, code);
+                        code.push("LOAD R1 R1".to_string());
+                    },
+                    _ => panic!("only dereference unary op allowed as lvalue")
+                }
             }
             _ => panic!("not yet supported as an lvalue"),
         }
@@ -529,6 +545,7 @@ impl Compiler {
     fn get_type_size(&self, _type: &String) -> u32 {
         match _type.as_str(){
             "int" => 1,
+            "int*" => 1,
             "void" => 0,
             _ => panic!("invalid type")
         }
