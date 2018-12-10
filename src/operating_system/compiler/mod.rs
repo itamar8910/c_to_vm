@@ -263,6 +263,9 @@ impl Compiler {
                 for arg in func_call.args.iter().rev(){
                     code.push("POP ZR".to_string());
                 }
+            },
+            Expression::ArrayRef(array_ref) => {
+                panic!("not yet implemented");
             }
         }
     }

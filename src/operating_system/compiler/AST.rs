@@ -184,7 +184,7 @@ pub enum Decl{
 
 impl Decl {
     fn from(node: &JsonNode) -> Result<Decl, AstError> {
-        match get_type(node).as_str(){
+        match node["type"]["_nodetype"].as_str().unwrap(){
             "ArrayDecl" => Ok(Decl::ArrayDecl(ArrayDecl::from(node)?)),
             _ => Ok(Decl::VarDecl(VarDecl::from(node)?)),
         }
@@ -199,7 +199,7 @@ pub struct VarDecl {
 impl VarDecl {
     fn from(node: &JsonNode) -> Result<VarDecl, AstError> {
         let name = node["name"].as_str().unwrap().to_string();
-        let mut _type = get_type(node);
+        let mut _type = get_var_type(node);
         let init = match node["init"] {
             JsonNode::Object(_) => Some(Expression::from(&node["init"])?),
             JsonNode::Null => None,
@@ -219,18 +219,29 @@ pub struct ArrayDecl{
   pub dimentions: Vec<u32>,
 }
 
+fn get_array_dimentions_and_type(node: &JsonNode) -> (Vec<u32>, String){
+    let mut dimentions = Vec::new();
+    let mut cur_node = &node["type"];
+    while cur_node["type"]["_nodetype"] == "ArrayDecl"{
+        dimentions.push(cur_node["dim"]["value"].as_str().unwrap().to_string().parse::<u32>().unwrap());
+        cur_node = &cur_node["type"];
+    }
+    dimentions.push(cur_node["dim"]["value"].as_str().unwrap().to_string().parse::<u32>().unwrap());
+    (dimentions, get_var_type(cur_node))
+}
+
 impl ArrayDecl {
     fn from(node: &JsonNode) -> Result<ArrayDecl, AstError> {
-        // TODO: impl.
+        let (dimentions, _type) = get_array_dimentions_and_type(node);
         Ok(ArrayDecl{
-            name: "NIL".to_string(),
-            _type: "NIL".to_string(),
-            dimentions: vec![],
+            name: node["name"].as_str().unwrap().to_string(),
+            _type: _type,
+            dimentions: dimentions,
         })
     }
 }
 
-fn get_type(node: &JsonNode) -> String{
+fn get_var_type(node: &JsonNode) -> String{
     let t = if node["type"]["_nodetype"].as_str().unwrap() == "PtrDecl" {"int*"} else {"int"};
     t.to_string()
 }
@@ -243,6 +254,7 @@ pub enum Expression {
     Assignment(Assignment),
     TernaryOp(TernaryOp),
     FuncCall(FuncCall),
+    ArrayRef(ArrayRef),
 }
 
 impl Expression {
@@ -255,6 +267,7 @@ impl Expression {
             "Assignment" => Ok(Expression::Assignment(Assignment::from(&node)?)),
             "TernaryOp" => Ok(Expression::TernaryOp(TernaryOp::from(&node)?)),
             "FuncCall" => Ok(Expression::FuncCall(FuncCall::from(&node)?)),
+            "ArrayRef" => Ok(Expression::ArrayRef(ArrayRef::from(&node)?)),
             _ => {
                 panic!(format!(
                     "Invalid expression type:{}",
@@ -597,6 +610,28 @@ impl FuncCall {
         Ok(FuncCall{
             name: node["name"]["name"].as_str().unwrap().to_string(),
             args: args,
+        })
+    }
+}
+
+pub struct ArrayRef{
+    pub name: String,
+    pub indices: Vec<Box<Expression>>,
+}
+
+impl ArrayRef {
+    fn from(node: &JsonNode) -> Result<ArrayRef, AstError> {
+        let mut indices = Vec::new();
+        let mut cur_node = node;
+        while cur_node["_nodetype"].as_str().unwrap() == "ArrayRef"{
+            indices.push(Box::new(Expression::from(&cur_node["subscript"])?));
+            cur_node = &cur_node["name"];
+        }
+        let name = cur_node["name"].as_str().unwrap().to_string();
+        indices.reverse();
+        Ok(ArrayRef{
+            name: name,
+            indices: indices,
         })
     }
 }
@@ -985,6 +1020,100 @@ mod tests {
                     },
                     _ => panic!()
                 }
+            },
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn array_decl(){
+        let ast_root = get_ast("tests/compiler_test_data/arrays/inputs/just_decl.c");
+        
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[0]{
+                    Statement::Decl(decl) => {
+                        match decl{
+                            Decl::ArrayDecl(array_decl) => {
+                                assert_eq!(array_decl.name, "arr");
+                                assert_eq!(array_decl._type, "int");
+                                assert_eq!(array_decl.dimentions.len(), 1);
+                                assert_eq!(array_decl.dimentions[0], 2);
+                            },
+                            _ => panic!(),
+                        }
+                    }
+                    _ => panic!()
+                };
+                match &func_def.body.items[1]{
+                    Statement::Decl(decl) => {
+                        match decl{
+                            Decl::ArrayDecl(array_decl) => {
+                                assert_eq!(array_decl.name, "arr");
+                                assert_eq!(array_decl._type, "int");
+                                assert_eq!(array_decl.dimentions.len(), 2);
+                                assert_eq!(array_decl.dimentions[0], 2);
+                                assert_eq!(array_decl.dimentions[1], 5);
+                            },
+                            _ => panic!(),
+                        }
+                    }
+                    _ => panic!()
+                };
+                match &func_def.body.items[2]{
+                    Statement::Decl(decl) => {
+                        match decl{
+                            Decl::ArrayDecl(array_decl) => {
+                                assert_eq!(array_decl.name, "arr");
+                                assert_eq!(array_decl._type, "int*");
+                                assert_eq!(array_decl.dimentions.len(), 3);
+                                assert_eq!(array_decl.dimentions[0], 2);
+                                assert_eq!(array_decl.dimentions[1], 5);
+                                assert_eq!(array_decl.dimentions[2], 8);
+                            },
+                            _ => panic!(),
+                        }
+                    }
+                    _ => panic!()
+                }
+            },
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn array_ref(){
+        let ast_root = get_ast("tests/compiler_test_data/arrays/inputs/3.c");
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[1]{
+                    Statement::Assignment(ass) => {
+                        match &*ass.lvalue{
+                            Expression::ArrayRef(array_ref) => {
+                                assert_eq!(array_ref.name, "arr");
+                                assert_eq!(array_ref.indices.len(), 3);
+                                match &*array_ref.indices[0]{
+                                    Expression::Constant(c) => {
+                                        assert_eq!(c.val, "2");
+                                    },
+                                    _ => panic!(),
+                                };
+                                match &*array_ref.indices[1]{
+                                    Expression::Constant(c) => {
+                                        assert_eq!(c.val, "4");
+                                    },
+                                    _ => panic!(),
+                                };
+                                match &*array_ref.indices[2]{
+                                    Expression::Constant(c) => {
+                                        assert_eq!(c.val, "3");
+                                    },
+                                    _ => panic!(),
+                                };
+                            },
+                            _ => panic!(),
+                        }
+                    }
+                    _ => panic!()
+                };
             },
             _ => panic!(),
         }
