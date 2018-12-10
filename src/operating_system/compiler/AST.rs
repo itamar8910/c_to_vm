@@ -91,6 +91,7 @@ impl FuncDecl {
     }
 }
 
+#[derive(Clone)]
 pub struct Compound {
     pub items: Vec<Statement>,
     pub code_loc: String, // needed for scope id
@@ -131,6 +132,7 @@ impl Compound {
     }
 }
 
+#[derive(Clone)]
 pub enum Statement {
     Return(Return),
     Decl(Decl),
@@ -165,6 +167,7 @@ impl Statement {
     }
 }
 
+#[derive(Clone)]
 pub struct Return {
     pub expr: Expression,
 }
@@ -177,6 +180,7 @@ impl Return {
     }
 }
 
+#[derive(Clone)]
 pub enum Decl{
     VarDecl(VarDecl),
     ArrayDecl(ArrayDecl),
@@ -190,6 +194,8 @@ impl Decl {
         }
     }
 }
+
+#[derive(Clone)]
 pub struct VarDecl {
     pub name: String,
     pub _type: String,
@@ -213,6 +219,7 @@ impl VarDecl {
     }
 }
 
+#[derive(Clone)]
 pub struct ArrayDecl{
   pub name: String,
   pub _type: String,
@@ -246,6 +253,7 @@ fn get_var_type(node: &JsonNode) -> String{
     t.to_string()
 }
 
+#[derive(Clone)]
 pub enum Expression {
     Constant(Constant),
     BinaryOp(BinaryOp),
@@ -279,6 +287,7 @@ impl Expression {
     }
 }
 
+#[derive(Clone)]
 pub struct Constant {
     pub _type: String,
     pub val: String,
@@ -293,6 +302,7 @@ impl Constant {
     }
 }
 
+#[derive(Clone)]
 pub struct BinaryOp {
     pub op_type: BinaryopType,
     pub left: Box<Expression>,
@@ -312,7 +322,7 @@ impl BinaryOp {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum BinaryopType {
     // arithmetical
     ADD,
@@ -384,6 +394,7 @@ impl BinaryopType {
     }
 }
 
+#[derive(Clone)]
 pub struct UnaryOp {
     pub op_type: UnaryopType,
     pub expr: Box<Expression>,
@@ -400,7 +411,7 @@ impl UnaryOp {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum UnaryopType {
     NEG,
     NOT,
@@ -412,6 +423,7 @@ pub enum UnaryopType {
     DEREF, // *
 }
 
+#[derive(Clone)]
 pub struct ID {
     pub name: String,
 }
@@ -443,6 +455,7 @@ impl UnaryopType {
     }
 }
 
+#[derive(Clone)]
 pub struct Assignment {
     pub op: AssignmentOp,
     pub lvalue: Box<Expression>,
@@ -462,6 +475,7 @@ impl Assignment {
     }
 }
 
+#[derive(Clone)]
 pub struct AssignmentOp {
     pub op: Option<BinaryopType>, // e.g for += assignment, this will be PLUS
 }
@@ -487,6 +501,7 @@ impl AssignmentOp {
     }
 }
 
+#[derive(Clone)]
 pub struct If {
     pub cond: Expression,
     pub iftrue: Box<Compound>,
@@ -506,6 +521,7 @@ impl If {
     }
 }
 
+#[derive(Clone)]
 pub struct TernaryOp {
     pub cond: Box<Expression>,
     pub iftrue: Box<Expression>,
@@ -522,6 +538,7 @@ impl TernaryOp {
     }
 }
 
+#[derive(Clone)]
 pub struct WhileLoop {
     pub cond: Expression,
     pub body: Box<Compound>,
@@ -538,6 +555,7 @@ impl WhileLoop {
     }
 }
 
+#[derive(Clone)]
 pub struct DoWhileLoop {
     pub cond: Expression,
     pub body: Box<Compound>,
@@ -554,6 +572,7 @@ impl DoWhileLoop {
     }
 }
 
+#[derive(Clone)]
 pub struct ForLoop{
     pub cond: Option<Expression>,
     pub init: Option<Box<Compound>>,
@@ -589,6 +608,7 @@ impl ForLoop {
     }
 }
 
+#[derive(Clone)]
 pub struct FuncCall{
     pub name: String,
     pub args: Vec<Box<Expression>>,
@@ -614,6 +634,7 @@ impl FuncCall {
     }
 }
 
+#[derive(Clone)]
 pub struct ArrayRef{
     pub name: String,
     pub indices: Vec<Box<Expression>>,

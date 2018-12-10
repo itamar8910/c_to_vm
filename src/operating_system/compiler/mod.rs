@@ -265,8 +265,41 @@ impl Compiler {
                 }
             },
             Expression::ArrayRef(array_ref) => {
-                panic!("not yet implemented");
+                self.codegen_load_addr_of_array_indexing(array_ref, scope, code);
+                code.push("LOAD R1 R1".to_string());
             }
+        }
+    }
+
+    fn codegen_load_addr_of_array_indexing(&mut self, array_ref: &ArrayRef, scope: &String, code: &mut Vec<String>){
+        self.codegen_load_addr_of_var(&array_ref.name, scope, code);
+        let arr_var = self.find_variable(&array_ref.name, scope).expect("array not found");
+        match &arr_var.var_type{
+            VariableType::Array{_type, dimentions} => {
+                // let mut offset = 0;                        
+                code.push("MOV R2 1".to_string()); // R2 holds current total array offset
+                let mut cur_dimentions_product = 1;
+                let item_size = self.get_type_size(_type);
+
+                // hiding from the borrow checker
+                let indices = array_ref.indices.clone();
+                let dimentions = dimentions.clone();
+
+                for (idx_expr, dimsize) in indices.iter().zip(dimentions){
+                    // offset += idx * cur_dimentions_product * item_size;
+                    code.push("PUSH R2".to_string()); // save R2
+                    self.right_gen(idx_expr, scope, code);
+                    code.push("POP R2".to_string());
+                    code.push(format!("MUL R1 R1 {}", cur_dimentions_product));
+                    code.push("ADD R2 R2 R1".to_string());
+                    cur_dimentions_product *= dimsize;
+                }
+                code.push(format!("MUL R2 R2 {}", item_size));
+                code.push("MOV R1 R2".to_string());
+
+            },
+            _ => panic!(format!("{} is no an array type", &array_ref.name)),
+
         }
     }
 
@@ -319,6 +352,9 @@ impl Compiler {
                     },
                     _ => panic!("only dereference unary op allowed as lvalue")
                 }
+            },
+            Expression::ArrayRef(array_ref) => {
+                self.codegen_load_addr_of_array_indexing(array_ref, scope, code);
             }
             _ => panic!("not yet supported as an lvalue"),
         }
@@ -428,6 +464,10 @@ impl Compiler {
                                     code.push("STR R2 R1".to_string());
                                 }
                             },
+                            Decl::ArrayDecl(arr_decl) => {
+                                self.update_var_declared(&arr_decl.name, scope);
+                                // TODO: impl. optional array initialzation syntax
+                            }
                             _ => panic!("not yet implemented"),
                         }
                     }
