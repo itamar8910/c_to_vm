@@ -277,7 +277,7 @@ impl Compiler {
         match &arr_var.var_type{
             VariableType::Array{_type, dimentions} => {
                 // let mut offset = 0;                        
-                code.push("MOV R2 1".to_string()); // R2 holds current total array offset
+                code.push("MOV R2 R1".to_string()); // R2 holds current item addr
                 let mut cur_dimentions_product = 1;
                 let item_size = self.get_type_size(_type);
 
@@ -291,10 +291,10 @@ impl Compiler {
                     self.right_gen(idx_expr, scope, code);
                     code.push("POP R2".to_string());
                     code.push(format!("MUL R1 R1 {}", cur_dimentions_product));
+                    code.push(format!("MUL R1 R1 {}", item_size));
                     code.push("ADD R2 R2 R1".to_string());
                     cur_dimentions_product *= dimsize;
                 }
-                code.push(format!("MUL R2 R2 {}", item_size));
                 code.push("MOV R1 R2".to_string());
 
             },
@@ -412,6 +412,7 @@ impl Compiler {
                     }
                     // make space on stack for local variables
                     let _scope_data = self.get_scope_data(func_name).unwrap();
+                    // println!("local vars size:{}", func_data.local_vars_size);
                     for _ in 0..func_data.local_vars_size {
                             // ZR contains "garbage", but we're just making space
                             code.push(String::from("PUSH ZR"));
@@ -466,7 +467,10 @@ impl Compiler {
                             },
                             Decl::ArrayDecl(arr_decl) => {
                                 self.update_var_declared(&arr_decl.name, scope);
-                                // TODO: impl. optional array initialzation syntax
+                                if let Some(init) = &arr_decl.init{
+                                    self.get_arr_init_code(&arr_decl.name, init, scope, code);
+                                }
+                                                        
                             }
                             _ => panic!("not yet implemented"),
                         }
@@ -565,6 +569,25 @@ impl Compiler {
             }
         }
     }
+
+    fn get_arr_init_code(&mut self, arr_name: &String, arr_init: &Vec<Expression>, scope: &String, code: &mut Vec<String>){
+        let arr_var = self.find_variable(arr_name, scope).expect("array not found");
+        match &arr_var.var_type{
+            VariableType::Array{_type, dimentions} => {
+                let item_size = self.get_type_size(_type);
+                self.codegen_load_addr_of_var(arr_name, scope, code);
+                code.push("MOV R2 R1".to_string());
+                for expr in arr_init.iter(){
+                    code.push("PUSH R2".to_string());
+                    self.right_gen(expr, scope, code);
+                    code.push("POP R2".to_string());
+                    code.push("STR R2 R1".to_string());
+                    code.push(format!("ADD R2 R2 {}", item_size));
+                }
+            },
+            _ => panic!(),
+        }
+    }
     fn find_break_continue_labels(&self, scope: &String) -> Option<(&String, &String)>{
         let mut cur_scope_name = scope;
         loop{
@@ -626,7 +649,7 @@ impl Compiler {
         // this needs to be a member function because for example we could
         // have an array of structs, so we need access to the compiler's
         // data in order to know that size of each element in the array
-        let mut size = 0;
+        let mut size = 1;
         for x in dimentions.iter(){
             size *= x;
         }
@@ -644,12 +667,13 @@ impl Compiler {
                 }
             },
             Decl::ArrayDecl(arr_decl) => {
+                let size = self.get_array_size(&arr_decl._type, &arr_decl.dimentions);
                 VariableData{
                     name: arr_decl.name.clone(),
                     local_or_arg: local_or_arg,
                     var_type: VariableType::from(decl),
-                    offset: *offset,
-                    size: self.get_array_size(&arr_decl._type, &arr_decl.dimentions)
+                    offset: *offset + size - 1,
+                    size: size,
                 }
             }
         }

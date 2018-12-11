@@ -224,6 +224,7 @@ pub struct ArrayDecl{
   pub name: String,
   pub _type: String,
   pub dimentions: Vec<u32>,
+  pub init: Option<Vec<Expression>>,
 }
 
 fn get_array_dimentions_and_type(node: &JsonNode) -> (Vec<u32>, String){
@@ -239,11 +240,20 @@ fn get_array_dimentions_and_type(node: &JsonNode) -> (Vec<u32>, String){
 
 impl ArrayDecl {
     fn from(node: &JsonNode) -> Result<ArrayDecl, AstError> {
+        let mut init_exprs = Vec::new();
+        let mut has_init = false;
+        if let Some(exprs) = &node["init"]["exprs"].as_array(){
+            has_init = true;
+            for exp in exprs.iter(){
+                init_exprs.push(Expression::from(exp)?);
+            }
+        }
         let (dimentions, _type) = get_array_dimentions_and_type(node);
         Ok(ArrayDecl{
             name: node["name"].as_str().unwrap().to_string(),
             _type: _type,
             dimentions: dimentions,
+            init: if has_init {Some(init_exprs)} else {None},
         })
     }
 }
@@ -1135,6 +1145,45 @@ mod tests {
                     }
                     _ => panic!()
                 };
+            },
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn array_init(){
+        let ast_root = get_ast("tests/compiler_test_data/arrays/inputs/initialization.c");
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[0]{
+                    Statement::Decl(decl) => {
+                        match decl{
+                            Decl::ArrayDecl(arr_decl) => {
+                                let init = &arr_decl.init.as_ref().unwrap();
+                                assert_eq!(init.len(), 3);
+                                match &init[0]{
+                                    Expression::Constant(c) => {
+                                        assert_eq!(c.val, "4");
+                                    },
+                                    _ => panic!(),
+                                };
+                                match &init[1]{
+                                    Expression::Constant(c) => {
+                                        assert_eq!(c.val, "7");
+                                    },
+                                    _ => panic!(),
+                                };
+                                match &init[2]{
+                                    Expression::Constant(c) => {
+                                        assert_eq!(c.val, "5");
+                                    },
+                                    _ => panic!(),
+                                };
+                            },
+                            _ => panic!(),
+                        }
+                    },
+                    _ => panic!(),
+                }
             },
             _ => panic!(),
         }
