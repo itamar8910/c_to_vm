@@ -1,5 +1,11 @@
 extern crate serde_json;
 
+extern crate linked_hash_map;
+
+use linked_hash_map::LinkedHashMap;
+
+use std::collections::HashMap;
+
 use self::serde_json::Value as JsonNode;
 
 use std::process::Command;
@@ -38,13 +44,18 @@ impl RootAstNode {
 pub enum External {
     FuncDef(FuncDef),
     FuncDecl(FuncDecl),
+    StructDecl(StructDecl),
 }
 
 impl External {
     fn from(node: &JsonNode) -> Result<External, AstError> {
         match node["_nodetype"].as_str().unwrap() {
             "FuncDef" => Ok(External::FuncDef(FuncDef::from(&node)?)),
-            "Decl" => Ok(External::FuncDecl(FuncDecl::from(&node)?)),
+            "Decl" => match node["type"]["_nodetype"].as_str().unwrap(){
+                "FuncDecl" => Ok(External::FuncDecl(FuncDecl::from(&node)?)),
+                "Struct" => Ok(External::StructDecl(StructDecl::from(&node)?)),
+                _ => panic!(),
+                }
             _ => {
                 panic!("Invalid external");
             }
@@ -258,9 +269,46 @@ impl ArrayDecl {
     }
 }
 
+#[derive(Clone)]
+pub struct StructDecl{
+    pub name: String,
+    pub items: LinkedHashMap<String, Decl>,
+}
+
+impl StructDecl {
+    fn from(node: &JsonNode) -> Result<StructDecl, AstError> {
+        let mut items = LinkedHashMap::new();
+        for decl in node["type"]["decls"].as_array().unwrap().iter(){
+            items.insert(decl["name"].as_str().unwrap().to_string(), Decl::from(decl)?);
+        }
+        Ok(StructDecl{
+            name: node["type"]["name"].as_str().unwrap().to_string(),
+            items
+        })
+    }
+}
+
 fn get_var_type(node: &JsonNode) -> String{
-    let t = if node["type"]["_nodetype"].as_str().unwrap() == "PtrDecl" {"int*"} else {"int"};
-    t.to_string()
+    match node["type"]["_nodetype"].as_str().unwrap(){
+        "TypeDecl" => {
+            match node["type"]["type"]["_nodetype"].as_str().unwrap(){
+                "IdentifierType" => {
+                    match node["type"]["type"]["names"].as_array().unwrap()[0].as_str().unwrap(){
+                        "int" => "int".to_string(),
+                        _ => panic!("invalid type"),
+                    }
+                },
+                "Struct" => {
+                    node["type"]["type"]["name"].as_str().unwrap().to_string()
+                },
+                _ => panic!(),
+            }
+        }
+        "PtrDecl" => {
+            "int*".to_string()
+        },
+        _ => panic!(),
+    }
 }
 
 #[derive(Clone)]
@@ -273,6 +321,7 @@ pub enum Expression {
     TernaryOp(TernaryOp),
     FuncCall(FuncCall),
     ArrayRef(ArrayRef),
+    StructRef(StructRef),
 }
 
 impl Expression {
@@ -286,6 +335,7 @@ impl Expression {
             "TernaryOp" => Ok(Expression::TernaryOp(TernaryOp::from(&node)?)),
             "FuncCall" => Ok(Expression::FuncCall(FuncCall::from(&node)?)),
             "ArrayRef" => Ok(Expression::ArrayRef(ArrayRef::from(&node)?)),
+            "StructRef" => Ok(Expression::StructRef(StructRef::from(&node)?)),
             _ => {
                 panic!(format!(
                     "Invalid expression type:{}",
@@ -663,6 +713,21 @@ impl ArrayRef {
         Ok(ArrayRef{
             name: name,
             indices: indices,
+        })
+    }
+}
+
+#[derive(Clone)]
+pub struct StructRef {
+    pub name: String,
+    pub field_name: String,
+}
+
+impl StructRef {
+    fn from(node: &JsonNode) -> Result<StructRef, AstError> {
+        Ok(StructRef{
+            name: node["name"]["name"].as_str().unwrap().to_string(),
+            field_name: node["field"]["name"].as_str().unwrap().to_string(),
         })
     }
 }
@@ -1181,6 +1246,65 @@ mod tests {
                             },
                             _ => panic!(),
                         }
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn structs(){
+        let ast_root = get_ast("tests/compiler_test_data/structs/inputs/1.c");
+        match &ast_root.externals[0] {
+            External::StructDecl(struct_decl) => {
+                match struct_decl.items.get("x").as_ref().unwrap(){
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "x");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
+                match struct_decl.items.get("y").as_ref().unwrap(){
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "y");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
+                match struct_decl.items.get("z").as_ref().unwrap(){
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "z");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        };
+        match &ast_root.externals[1] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[0] {
+                    Statement::Decl(decl) => {
+                        match decl{
+                            Decl::VarDecl(var_decl) => {
+                                assert_eq!(var_decl.name, "a");
+                                assert_eq!(var_decl._type, "A");
+                            },
+                            _ => panic!(),
+                        }
+                    },
+                    _ => panic!(),
+                };
+                match &func_def.body.items[3] {
+                    Statement::Assignment(ass) => {
+                        match &*ass.lvalue {
+                            Expression::StructRef(struct_ref) => {
+                                assert_eq!(struct_ref.name, "a");
+                                assert_eq!(struct_ref.field_name, "z");
+                            },
+                        _ => panic!(),
+                        };
                     },
                     _ => panic!(),
                 }

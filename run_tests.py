@@ -24,7 +24,7 @@ def get_test_categories():
 
 test_cases = get_test_categories()
 
-categories, inputs, targets = zip(*[(category, inp, tar) for category, data in test_cases.items() for inp, tar in zip(data['inputs'], data['targets'])])
+categories, inputs, targets = zip(*[(category, inp, tar) for category, data in test_cases.items() for inp, tar in zip(data['inputs'], data['targets']) if not inp.startswith('_')])
 assert all([i.replace('.c', '') == t.replace('.txt', '') for i, t in zip(inputs, targets)]), 'input/target mismatch!'
 
 

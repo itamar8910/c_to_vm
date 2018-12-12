@@ -1,4 +1,8 @@
 extern crate serde_json;
+
+extern crate linked_hash_map;
+use linked_hash_map::LinkedHashMap;
+
 mod AST;
 
 use self::AST::*;
@@ -20,6 +24,7 @@ enum LocalOrArg{
 enum VariableType {
     Regular {_type: String},
     Array {_type: String, dimentions: Vec<u32>},
+    // Struct {items: Vec<Box<VariableData>>}
 }
 
 impl VariableType{
@@ -31,7 +36,7 @@ impl VariableType{
             Decl::ArrayDecl(arr_decl) => VariableType::Array{
                 _type: arr_decl._type.clone(),
                 dimentions: arr_decl.dimentions.clone(),
-            }
+            },
         }
     }
 }
@@ -79,9 +84,17 @@ struct ScopeData {
 }
 
 
+#[derive(Debug)]
+pub struct StructData{
+    name: String,
+    size: u32,
+    items: LinkedHashMap<String, VariableData>,
+}
+
 pub struct Compiler {
     scope_to_data: HashMap<String, ScopeData>,
     func_to_data: HashMap<String, FuncData>,
+    struct_to_data: HashMap<String, StructData>,
     tmp_label_count: u32,
 }
 
@@ -90,6 +103,7 @@ impl Compiler {
         Compiler {
             scope_to_data: HashMap::new(),
             func_to_data: HashMap::new(),
+            struct_to_data: HashMap::new(),
             tmp_label_count: 0,
         }
     }
@@ -267,10 +281,31 @@ impl Compiler {
             Expression::ArrayRef(array_ref) => {
                 self.codegen_load_addr_of_array_indexing(array_ref, scope, code);
                 code.push("LOAD R1 R1".to_string());
+            },
+            Expression::StructRef(struct_ref) => {
+                self.codegen_load_addr_of_struct_ref(struct_ref, scope, code);
+                code.push("LOAD R1 R1".to_string());
             }
         }
     }
 
+    fn codegen_load_addr_of_struct_ref(&mut self, struct_ref: &StructRef, scope: &String, code: &mut Vec<String>){
+        let var_name = &struct_ref.name;
+        self.codegen_load_addr_of_var(var_name, scope, code);
+        let var_data = self.find_variable(var_name, scope).unwrap();
+        if let VariableType::Regular{_type: struct_type} = &var_data.var_type{
+            let struct_data = self.struct_to_data.get(struct_type).expect("struct doesn't exist");
+            code.push("MOV R2 R1".to_string()); // R2 holds current item addr
+            // TODO: support recursive struct indexing
+            let item_offset = struct_data.items.get(&struct_ref.field_name).expect("struct field doesn't exist").offset;
+            code.push(format!("ADD R2 R2 {}", item_offset));
+            code.push("MOV R1 R2".to_string());
+
+        } else{
+            panic!();
+        }
+
+    }
     fn codegen_load_addr_of_array_indexing(&mut self, array_ref: &ArrayRef, scope: &String, code: &mut Vec<String>){
         self.codegen_load_addr_of_var(&array_ref.name, scope, code);
         let arr_var = self.find_variable(&array_ref.name, scope).expect("array not found");
@@ -355,6 +390,9 @@ impl Compiler {
             },
             Expression::ArrayRef(array_ref) => {
                 self.codegen_load_addr_of_array_indexing(array_ref, scope, code);
+            },
+            Expression::StructRef(struct_ref) => {
+                self.codegen_load_addr_of_struct_ref(struct_ref, scope, code);
             }
             _ => panic!("not yet supported as an lvalue"),
         }
@@ -385,6 +423,9 @@ impl Compiler {
                         },
                         External::FuncDecl(func_decl) => {
                             self.code_gen(AstNode::FuncDecl(func_decl), &"_GLOBAL".to_string(), code);
+                        },
+                        External::StructDecl(struct_decl) => {
+                            self.regiser_struct(struct_decl);
                         }
                     }
                 }
@@ -638,6 +679,9 @@ impl Compiler {
     }
 
     fn get_type_size(&self, _type: &String) -> u32 {
+        if let Some(struct_data) = self.struct_to_data.get(_type){
+            return struct_data.size
+        }
         match _type.as_str(){
             "int" => 1,
             "int*" => 1,
@@ -645,6 +689,7 @@ impl Compiler {
             _ => panic!("invalid type")
         }
     }
+
     fn get_array_size(&self, item_type: &String, dimentions: &Vec<u32>) -> u32{
         // this needs to be a member function because for example we could
         // have an array of structs, so we need access to the compiler's
@@ -655,6 +700,18 @@ impl Compiler {
         }
         size * self.get_type_size(item_type)
     }
+
+    fn get_decl_size(&self, decl: &Decl) -> u32{
+        match decl{
+            Decl::VarDecl(var_decl) => {
+                self.get_type_size(&var_decl._type)
+            },
+            Decl::ArrayDecl(arr_decl) => {
+                self.get_array_size(&arr_decl._type, &arr_decl.dimentions)
+            }
+        }
+    }
+
     fn variable_data_from_decl(&self, decl: &Decl, local_or_arg: LocalOrArg, offset: &u32) -> VariableData{
         match decl{
             Decl::VarDecl(var_decl) => {
@@ -675,7 +732,7 @@ impl Compiler {
                     offset: *offset + size - 1,
                     size: size,
                 }
-            }
+            },
         }
     }
     fn register_scope(&mut self, scope_name: &String, statements: &Vec<Statement>, parent_scope_name: &String, parent_func_name: &String, current_var_offset: & mut u32){
@@ -793,6 +850,27 @@ impl Compiler {
         });
     }
 
+    fn regiser_struct(&mut self, struct_decl: &StructDecl){
+        let mut items = LinkedHashMap::new();
+        let mut cur_offset = 0;
+        for (name, decl) in &struct_decl.items{
+            let size = self.get_decl_size(decl);
+            let var_data = VariableData {
+                name: name.clone(),
+                local_or_arg: LocalOrArg::Local,
+                var_type: VariableType::from(decl),
+                offset: cur_offset.clone(),
+                size: size,
+            };
+            cur_offset += size;
+            items.insert(name.clone(), var_data);
+        }
+        self.struct_to_data.insert(struct_decl.name.clone(), StructData{
+            name: struct_decl.name.clone(),
+            size: cur_offset.clone(),
+            items,
+        });
+    }
 
     fn get_func_data(&self, func_name: &String) -> Option<&FuncData> {
         self.func_to_data.get(func_name)
@@ -882,6 +960,26 @@ mod tests{
         assert_eq!(y.offset, 1);
         let z = scope_data.variables.get(&"z".to_string()).unwrap();
         assert_eq!(z.offset, 2);
+    }
+
+    #[test]
+    fn struct_registration(){
+        let mut compiler = Compiler::new();
+        compiler._compile("tests/compiler_test_data/structs/inputs/1.c");
+        let struct_data = compiler.struct_to_data.get("A").unwrap();
+        assert_eq!(struct_data.name, "A");
+        assert_eq!(struct_data.size, 3);
+        let x = struct_data.items.get("x").unwrap();
+        assert_eq!(x.name, "x");
+        assert_eq!(x.offset, 0);
+        assert_eq!(x.size, 1);
+        if let VariableType::Regular{_type: t} = &x.var_type{
+            assert_eq!(t, "int");
+        } else{
+            panic!();
+        }
+        assert_eq!(struct_data.items.get("y").unwrap().offset, 1);
+        assert_eq!(struct_data.items.get("z").unwrap().offset, 2);
     }
 
 
