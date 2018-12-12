@@ -720,14 +720,24 @@ impl ArrayRef {
 #[derive(Clone)]
 pub struct StructRef {
     pub name: String,
-    pub field_name: String,
+    pub field_names: Vec<String>,
 }
 
 impl StructRef {
     fn from(node: &JsonNode) -> Result<StructRef, AstError> {
+        let mut fields = Vec::new();
+        let mut cur_node = node;
+        while cur_node["name"]["_nodetype"].as_str().unwrap() == "StructRef"{
+            fields.push(cur_node["field"]["name"].as_str().unwrap().to_string());
+            cur_node = &cur_node["name"];
+        }
+        fields.push(cur_node["field"]["name"].as_str().unwrap().to_string());
+
+        fields.reverse();
+
         Ok(StructRef{
-            name: node["name"]["name"].as_str().unwrap().to_string(),
-            field_name: node["field"]["name"].as_str().unwrap().to_string(),
+            name: cur_node["name"]["name"].as_str().unwrap().to_string(),
+            field_names: fields,
         })
     }
 }
@@ -1301,7 +1311,7 @@ mod tests {
                         match &*ass.lvalue {
                             Expression::StructRef(struct_ref) => {
                                 assert_eq!(struct_ref.name, "a");
-                                assert_eq!(struct_ref.field_name, "z");
+                                assert_eq!(struct_ref.field_names, vec!["z"]);
                             },
                         _ => panic!(),
                         };
@@ -1312,4 +1322,83 @@ mod tests {
             _ => panic!(),
         }
     }
+    #[test]
+    fn recursive_structs(){
+        let ast_root = get_ast("tests/compiler_test_data/structs/inputs/recursive.c");
+        match &ast_root.externals[0] {
+            External::StructDecl(struct_decl) => {
+                match struct_decl.items.get("x").as_ref().unwrap(){
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "x");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
+                match struct_decl.items.get("y").as_ref().unwrap(){
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "y");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        };
+        match &ast_root.externals[1] {
+            External::StructDecl(struct_decl) => {
+                match struct_decl.items.get("x").as_ref().unwrap(){
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "x");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
+                match struct_decl.items.get("y").as_ref().unwrap(){
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "y");
+                        assert_eq!(var_decl._type, "int");
+                    },
+                    _ => panic!(),
+                }
+                match struct_decl.items.get("a").as_ref().unwrap(){
+                    Decl::VarDecl(var_decl) => {
+                        assert_eq!(var_decl.name, "a");
+                        assert_eq!(var_decl._type, "A");
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        };
+        match &ast_root.externals[2] {
+            External::FuncDef(func_def) => {
+                match &func_def.body.items[0] {
+                    Statement::Decl(decl) => {
+                        match decl{
+                            Decl::VarDecl(var_decl) => {
+                                assert_eq!(var_decl.name, "b");
+                                assert_eq!(var_decl._type, "B");
+                            },
+                            _ => panic!(),
+                        }
+                    },
+                    _ => panic!(),
+                };
+                match &func_def.body.items[2] {
+                    Statement::Assignment(ass) => {
+                        match &*ass.lvalue {
+                            Expression::StructRef(struct_ref) => {
+                                assert_eq!(struct_ref.name, "b");
+                                assert_eq!(struct_ref.field_names, vec!["a", "y"]);
+                            },
+                        _ => panic!(),
+                        };
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        }
+    }
+
 }

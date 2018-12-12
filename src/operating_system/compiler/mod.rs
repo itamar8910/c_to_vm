@@ -296,9 +296,19 @@ impl Compiler {
         if let VariableType::Regular{_type: struct_type} = &var_data.var_type{
             let struct_data = self.struct_to_data.get(struct_type).expect("struct doesn't exist");
             code.push("MOV R2 R1".to_string()); // R2 holds current item addr
-            // TODO: support recursive struct indexing
-            let item_offset = struct_data.items.get(&struct_ref.field_name).expect("struct field doesn't exist").offset;
-            code.push(format!("ADD R2 R2 {}", item_offset));
+            let mut cur_struct = struct_data;
+            for (field_i, field) in struct_ref.field_names.iter().enumerate(){
+                let field_vardata = cur_struct.items.get(field).expect(&format!("field {} not found in struct {}", field, &cur_struct.name));
+
+                code.push(format!("ADD R2 R2 {}", field_vardata.offset));
+                if field_i < struct_ref.field_names.len() - 1{
+                    if let VariableType::Regular{_type: sub_struct_name} = &field_vardata.var_type{
+                        cur_struct = self.struct_to_data.get(sub_struct_name).unwrap();
+                    }else{
+                        panic!();
+                    }
+                }
+            }
             code.push("MOV R1 R2".to_string());
 
         } else{
@@ -425,7 +435,7 @@ impl Compiler {
                             self.code_gen(AstNode::FuncDecl(func_decl), &"_GLOBAL".to_string(), code);
                         },
                         External::StructDecl(struct_decl) => {
-                            self.regiser_struct(struct_decl);
+                            self.register_struct(struct_decl);
                         }
                     }
                 }
@@ -440,7 +450,7 @@ impl Compiler {
                 let func_name = &func_def.decl.name;
                 code.push(format!("{}:", func_name));
                 self.register_func_decl(&func_def.decl);
-                self.regiser_func_body(&func_def.body, &func_def.decl, scope);
+                self.register_func_body(&func_def.body, &func_def.decl, scope);
                 {
                     // NLL workaround
                     let func_data = self.get_func_data(func_name).unwrap();
@@ -453,7 +463,7 @@ impl Compiler {
                     }
                     // make space on stack for local variables
                     let _scope_data = self.get_scope_data(func_name).unwrap();
-                    // println!("local vars size:{}", func_data.local_vars_size);
+                    println!("local vars size:{}", func_data.local_vars_size);
                     for _ in 0..func_data.local_vars_size {
                             // ZR contains "garbage", but we're just making space
                             code.push(String::from("PUSH ZR"));
@@ -715,12 +725,13 @@ impl Compiler {
     fn variable_data_from_decl(&self, decl: &Decl, local_or_arg: LocalOrArg, offset: &u32) -> VariableData{
         match decl{
             Decl::VarDecl(var_decl) => {
+                let size = self.get_decl_size(decl);
                 VariableData{
                     name: var_decl.name.clone(),
                     local_or_arg: local_or_arg,
                     var_type: VariableType::from(decl),
-                    offset: *offset,
-                    size: 1,
+                    offset: *offset + size - 1,
+                    size: size.clone(),
                 }
             },
             Decl::ArrayDecl(arr_decl) => {
@@ -819,7 +830,7 @@ impl Compiler {
         self.func_to_data.insert(func_decl.name.clone(), func_data);
     }
 
-    fn regiser_func_body(&mut self, func_body: &Compound, func_decl: &FuncDecl, parent_scope: &String){
+    fn register_func_body(&mut self, func_body: &Compound, func_decl: &FuncDecl, parent_scope: &String){
         let func_name = &func_decl.name;
         let mut vars_size : u32 = 0;
         self.register_scope(func_name, &func_body.items, parent_scope, func_name, &mut vars_size);
@@ -850,7 +861,7 @@ impl Compiler {
         });
     }
 
-    fn regiser_struct(&mut self, struct_decl: &StructDecl){
+    fn register_struct(&mut self, struct_decl: &StructDecl){
         let mut items = LinkedHashMap::new();
         let mut cur_offset = 0;
         for (name, decl) in &struct_decl.items{
