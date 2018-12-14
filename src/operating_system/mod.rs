@@ -7,6 +7,7 @@ use std::io::Read;
 
 use self::assembler::assemble;
 use self::assembler::assemble_and_link;
+use self::compiler::Compiler;
 use crate::cpu::instructions::*;
 use crate::cpu::Cpu;
 use crate::cpu::MemEntry;
@@ -77,11 +78,15 @@ pub struct OS {
     pub cpu: Cpu,
     pub out_chars : Vec<char>,
     pub inp_chars : Vec<char>,
+    std_programs: Vec<String>,
 }
 
 impl OS {
     pub fn new() -> OS {
-        let mut instance = OS { cpu: Cpu::new() , out_chars: Vec::new(), inp_chars: Vec::new()};
+        let mut std_programs = Vec::new();
+        std_programs.push(Compiler::compile("libc/libc.c"));
+        let mut instance = OS { cpu: Cpu::new() , out_chars: Vec::new(), inp_chars: Vec::new(),
+            std_programs};
         instance.initialize_memory();
         instance
     }
@@ -178,13 +183,15 @@ impl OS {
     }
 
     pub fn assemble_link_and_run(&mut self, programs: Vec<&str>) -> i32 {
-        let (instructions, _) = assemble_and_link(programs);
+        let mut programs_with_std = programs;
+        let mut std_programs_clone = self.std_programs.iter().map(|s| s.as_str()).collect();
+        programs_with_std.append(&mut std_programs_clone);
+        let (instructions, _) = assemble_and_link(programs_with_std);
         self.load_and_run(instructions)
     }
 
     pub fn assemble_and_run(&mut self, program: &str) -> i32 {
-        let (instructions, _) = assemble_and_link(vec![program]);
-        self.load_and_run(instructions)
+        self.assemble_link_and_run(vec![program])
     }
 
     pub fn debug_program(&mut self, instructions: Vec<Instruction>, symbol_table: HashMap<String, u32>) -> i32{

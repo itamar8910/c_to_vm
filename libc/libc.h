@@ -1,0 +1,1 @@
+void putc(int c);

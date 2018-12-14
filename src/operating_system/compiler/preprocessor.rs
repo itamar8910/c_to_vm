@@ -7,6 +7,9 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::ffi::OsStr;
 
+
+static STD_DIR : &str = "./libc";
+
 pub fn expand_include(include_str: &str, program_dir: &Path) -> Vec<String> {
     let include_program_path = program_dir.join(Path::new(include_str));
     let mut include_file = File::open(include_program_path.to_str().unwrap()).unwrap();
@@ -23,10 +26,14 @@ pub fn preprocess(program_path: &str) -> String{
     let src_lines: Vec<&str> = program.split("\n").collect();
     let mut dst_lines : Vec<String> = Vec::new();
     let include_re = Regex::new("^#include \"(.+)\"$").unwrap();
+    let std_include_re = Regex::new("^#include <(.+)>$").unwrap();
     for line in src_lines.iter(){
         if let Some(caps) = include_re.captures(&line){
             dst_lines.append(&mut expand_include(&caps[1], program_dir));
-        } else{
+        } else if let Some(caps) = std_include_re.captures(&line){
+            dst_lines.append(&mut expand_include(&caps[1], Path::new(STD_DIR)));
+        }
+        else{
             dst_lines.push(line.clone().to_string());
         }
     } 
