@@ -40,26 +40,53 @@ fn maybe_parse_instruction(
     None
 }
 
+
+/// returns program's symbol table & # of instructions
+pub fn gen_symbol_table(program: &str, start_addr: u32) -> (HashMap<String, u32>, u32){
+    let mut symbol_table = HashMap::new();
+    let mut cur_address = start_addr;
+
+    let lines: Vec<&str> = program.split("\n").collect();
+    for (line_i, line) in lines.iter().enumerate() {
+        if let Some(label) = get_label_from_line(line) {
+            symbol_table.insert(label, cur_address);
+        } else if is_instruction(line) {
+            cur_address += 1;
+        }
+    }
+
+    (symbol_table, cur_address - start_addr)
+}
+
 pub fn assemble(program: &str) -> (Vec<Instruction>, HashMap<String, u32>) {
+    assemble_and_link(vec![program])
+}
+
+pub fn assemble_and_link(programs: Vec<&str>) -> (Vec<Instruction>, HashMap<String, u32>) {
     let mut symbol_table = HashMap::new();
     let mut instructions = Vec::new();
     let mut cur_rel_address = 0;
 
-    // first pass, create symbol table
-    let lines: Vec<&str> = program.split("\n").collect();
-    for (line_i, line) in lines.iter().enumerate() {
-        symbol_table.insert(format!("_LINE_{}", line_i.to_string()), cur_rel_address); // for setting breakpoints in debugger
-        if let Some(label) = get_label_from_line(line) {
-            symbol_table.insert(label, cur_rel_address);
-        } else if is_instruction(line) {
-            cur_rel_address += 1;
-        }
+    // create a symbol table for each program separately 
+    // and add it to global symbol table
+    // side note: we create a separate symobl table for each file instead of just concatenating all of the programs
+    // in order to be able to support source-level breakpoints in the future
+    for program in programs.iter(){
+        let (program_symbol_table, program_size) = gen_symbol_table(*program, cur_rel_address);
+        cur_rel_address += program_size;
+        symbol_table.extend(program_symbol_table);
     }
-
+    let whole_program = programs.join("\n");
+    println!("--------");
+    for (line_i, line) in whole_program.split("\n").collect::<Vec<&str>>().iter().enumerate(){
+        println!("{}: {}", line_i, line);
+    }
+    println!("--------");
     // second pass, parse instructions & calc relative offsets
     cur_rel_address = 0;
-    let lines: Vec<&str> = program.split("\n").collect();
-    for line in lines.iter() {
+    let lines: Vec<&str> = whole_program.split("\n").collect();
+    for (line_i, line) in lines.iter().enumerate() {
+        symbol_table.insert(format!("_LINE_{}", line_i.to_string()), cur_rel_address); // for setting breakpoints in debugger
         if let Some(instr) = maybe_parse_instruction(line, &symbol_table, cur_rel_address) {
             instructions.push(instr);
             cur_rel_address += 1;

@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::io::Read;
 
 use self::assembler::assemble;
+use self::assembler::assemble_and_link;
 use crate::cpu::instructions::*;
 use crate::cpu::Cpu;
 use crate::cpu::MemEntry;
@@ -176,8 +177,13 @@ impl OS {
         self.cpu.mem.get_num((bp + 2) as u32)
     }
 
+    pub fn assemble_link_and_run(&mut self, programs: Vec<&str>) -> i32 {
+        let (instructions, _) = assemble_and_link(programs);
+        self.load_and_run(instructions)
+    }
+
     pub fn assemble_and_run(&mut self, program: &str) -> i32 {
-        let (instructions, _) = assemble(program);
+        let (instructions, _) = assemble_and_link(vec![program]);
         self.load_and_run(instructions)
     }
 
@@ -238,8 +244,8 @@ impl OS {
         self.cpu.mem.get_num((bp + 2) as u32)
     }
 
-    pub fn assemble_and_debug(&mut self, program: &str) -> i32 {
-        let (instructions, symbol_table) = assemble(program);
+    pub fn assemble_and_debug(&mut self, programs: Vec<&str>) -> i32 {
+        let (instructions, symbol_table) = assemble_and_link(programs);
         self.debug_program(instructions, symbol_table)
     }
 
