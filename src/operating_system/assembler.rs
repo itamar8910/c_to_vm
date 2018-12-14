@@ -48,7 +48,7 @@ pub fn assemble(program: &str) -> (Vec<Instruction>, HashMap<String, u32>) {
     // first pass, create symbol table
     let lines: Vec<&str> = program.split("\n").collect();
     for (line_i, line) in lines.iter().enumerate() {
-        symbol_table.insert(format!("_LINE_{}", line_i.to_string()), cur_rel_address);
+        symbol_table.insert(format!("_LINE_{}", line_i.to_string()), cur_rel_address); // for setting breakpoints in debugger
         if let Some(label) = get_label_from_line(line) {
             symbol_table.insert(label, cur_rel_address);
         } else if is_instruction(line) {

@@ -8,5 +8,4 @@ int main(){
     int c = *CID;
     *COD = c;
     *COS = 1;
-
 }
