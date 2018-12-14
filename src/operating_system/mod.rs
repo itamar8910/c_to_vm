@@ -3,6 +3,7 @@ pub mod compiler;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::io::Read;
 
 use self::assembler::assemble;
 use crate::cpu::instructions::*;
@@ -11,7 +12,15 @@ use crate::cpu::MemEntry;
 
 /*
 Memory layout:
-0-499 os stuff
+0-499 os stuff:
+    - memory mapped registers:
+    - 200 COS - char out status
+    - 201 COD - char out data
+    - 202 CIS - char in status
+    - 203 CID - char in data
+    
+    to write a char, write its ascii value to COD & then set COS to 1
+    to read a char, set CIS to 1 & read ascii value from CID
 500-999 data
 1000-3999 code
 4000-5999 heap
@@ -57,13 +66,21 @@ Returning from the function:
 const PROGRAM_INIT_ADDRESS: u32 = 1000;
 const INIT_SP_ADDRESS: u32 = 9999;
 
+// memory mapped registers for io
+const COS : u32 = 200; // char out status
+const COD : u32 = 201; // char out data
+const CIS : u32 = 202; // char in status
+const CID : u32 = 203; // char in data
+
 pub struct OS {
     pub cpu: Cpu,
+    pub out_chars : Vec<char>,
+    pub inp_chars : Vec<char>,
 }
 
 impl OS {
     pub fn new() -> OS {
-        let mut instance = OS { cpu: Cpu::new() };
+        let mut instance = OS { cpu: Cpu::new() , out_chars: Vec::new(), inp_chars: Vec::new()};
         instance.initialize_memory();
         instance
     }
@@ -73,6 +90,10 @@ impl OS {
             0,
             MemEntry::Instruction(Instruction::from_str("HALT").unwrap()),
         );
+        self.cpu.mem.set(COS, MemEntry::Num(0));
+        self.cpu.mem.set(COD, MemEntry::Num(0));
+        self.cpu.mem.set(CIS, MemEntry::Num(0));
+        self.cpu.mem.set(CID, MemEntry::Num(0));
     }
 
     fn reset_cpu_state(&mut self) {
@@ -105,16 +126,51 @@ impl OS {
         }
     }
 
+    fn io_step(&mut self){
+        if self.cpu.mem.get_num(COS) != 0 {
+            let c = self.cpu.mem.get_num(COD);
+            let c = c as u8 as char;
+            self.out_chars.push(c);
+            print!("{}", c);
+            // reset status register
+            self.cpu.mem.set(COS, MemEntry::Num(0));
+        }
+        if self.cpu.mem.get_num(CIS) != 0 {
+            // read a single byte fron stdin
+            let mut input_handle = std::io::stdin().take(1);
+            let mut buffer = [0];
+            input_handle.read(&mut buffer);
+            let c = buffer[0] as char;
+            self.cpu.mem.set(CID, MemEntry::Num(c as i32));
+            self.cpu.mem.set(CIS, MemEntry::Num(0));
+        }
+    }
+
+    fn step(&mut self) -> bool {
+        let keep_running = self.cpu.step();
+        self.io_step();
+        keep_running
+    }
+
+    fn run(&mut self){
+        loop{
+            let keep_running = self.step();
+            if !keep_running {
+                break;
+            }
+        }
+    }
+
     // runs given program
     // returns program's exit value
-    pub fn run_program(&mut self, instructions: Vec<Instruction>) -> i32 {
+    pub fn load_and_run(&mut self, instructions: Vec<Instruction>) -> i32 {
         self.reset_cpu_state();
         self.load_program(&instructions, PROGRAM_INIT_ADDRESS);
         self.cpu
             .regs
             .set(&Register::IR, PROGRAM_INIT_ADDRESS as i32);
         self.initialize_stackframe();
-        self.cpu.start();
+        self.run();
 
         let bp = self.cpu.regs.get(&Register::BP);
         self.cpu.mem.get_num((bp + 2) as u32)
@@ -122,7 +178,7 @@ impl OS {
 
     pub fn assemble_and_run(&mut self, program: &str) -> i32 {
         let (instructions, _) = assemble(program);
-        self.run_program(instructions)
+        self.load_and_run(instructions)
     }
 
     pub fn debug_program(&mut self, instructions: Vec<Instruction>, symbol_table: HashMap<String, u32>) -> i32{
@@ -142,7 +198,7 @@ impl OS {
                 running = false;
             }
             if running{
-                keep_running = self.cpu.step();
+                keep_running = self.step();
                 continue;
             }
             let next_instr = self.cpu.fetch();

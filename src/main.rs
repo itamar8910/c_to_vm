@@ -17,6 +17,7 @@ fn main() {
         println!("{}: {}", line_i, line);
     }
     println!("RUNNING");
+    println!("--------");
     let mut os = OS::new();
     let mut res = -1;
     if args[1] == "run"{
@@ -26,6 +27,6 @@ fn main() {
     }else{
         panic!("invalid run mode")
     }
-    println!("-----");
+    println!("\n--------");
     println!("Return code:{}", res);
 }

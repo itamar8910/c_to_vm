@@ -219,6 +219,7 @@ impl Cpu {
         let keep_running = self.execute(&instr);
         let ir = self.regs.get(&Register::IR);
         self.regs.set(&Register::IR, ir + 1);
+
         keep_running
     }
 
