@@ -31,9 +31,8 @@ enum LocalOrArg{
 
 #[derive(Debug)]
 enum VariableType {
-    Regular {_type: String},
-    Array {_type: String, dimentions: Vec<u32>},
-    // Struct {items: Vec<Box<VariableData>>}
+    Regular {_type: Type}, // including structs
+    Array {_type: Type, dimentions: Vec<u32>},
 }
 
 impl VariableType{
@@ -73,7 +72,7 @@ struct FuncBodyData {
 #[derive(Debug)]
 struct FuncDeclData{
     args_types : Vec<VariableType>,
-    return_type: String,
+    return_type: Type,
 }
 
 struct FuncData{
@@ -298,28 +297,37 @@ impl Compiler {
         }
     }
 
+    fn get_struct_data_from_type(&self, _t: &Type) -> Option<&StructData> {
+        if let Type::Struct(struct_name) = _t {
+            Some(self.struct_to_data.get(struct_name)?)
+        } else {
+            None
+        }
+    }
+
     fn codegen_load_addr_of_struct_ref(&mut self, struct_ref: &StructRef, scope: &String, code: &mut Vec<String>){
         let var_name = &struct_ref.name;
         self.codegen_load_addr_of_var(var_name, scope, code);
         let var_data = self.find_variable(var_name, scope).unwrap();
         if let VariableType::Regular{_type: struct_type} = &var_data.var_type{
-            let struct_data = self.struct_to_data.get(struct_type).expect("struct doesn't exist");
-            code.push("MOV R2 R1".to_string()); // R2 holds current item addr
-            let mut cur_struct = struct_data;
-            for (field_i, field) in struct_ref.field_names.iter().enumerate(){
-                let field_vardata = cur_struct.items.get(field).expect(&format!("field {} not found in struct {}", field, &cur_struct.name));
+            if let Type::Struct(struct_type) = struct_type{
+                let struct_data = self.struct_to_data.get(struct_type).expect("struct doesn't exist");
+                code.push("MOV R2 R1".to_string()); // R2 holds current item addr
+                let mut cur_struct = struct_data;
+                for (field_i, field) in struct_ref.field_names.iter().enumerate(){
+                    let field_vardata = cur_struct.items.get(field).expect(&format!("field {} not found in struct {}", field, &cur_struct.name));
 
-                code.push(format!("ADD R2 R2 {}", field_vardata.offset));
-                if field_i < struct_ref.field_names.len() - 1{
-                    if let VariableType::Regular{_type: sub_struct_name} = &field_vardata.var_type{
-                        cur_struct = self.struct_to_data.get(sub_struct_name).unwrap();
-                    }else{
-                        panic!();
+                    code.push(format!("ADD R2 R2 {}", field_vardata.offset));
+                    if field_i < struct_ref.field_names.len() - 1{
+                        if let VariableType::Regular{_type: t} = &field_vardata.var_type{
+                            cur_struct = self.get_struct_data_from_type(t).unwrap();
+                        }else{
+                            panic!();
+                        }
                     }
                 }
-            }
-            code.push("MOV R1 R2".to_string());
-
+                code.push("MOV R1 R2".to_string());
+            } else {panic!()}
         } else{
             panic!();
         }
@@ -697,19 +705,19 @@ impl Compiler {
         scope_data.declared_variables.insert(var_name.clone().to_string());
     }
 
-    fn get_type_size(&self, _type: &String) -> u32 {
-        if let Some(struct_data) = self.struct_to_data.get(_type){
+    fn get_type_size(&self, _type: &Type) -> u32 {
+        if let Some(struct_data) = self.get_struct_data_from_type(_type){
             return struct_data.size
         }
-        match _type.as_str(){
-            "int" => 1,
-            "int*" => 1,
-            "void" => 0,
+        match _type{
+            Type::Int => 1,
+            Type::Ptr(_) => 1,
+            Type::Void => 0,
             _ => panic!("invalid type")
         }
     }
 
-    fn get_array_size(&self, item_type: &String, dimentions: &Vec<u32>) -> u32{
+    fn get_array_size(&self, item_type: &Type, dimentions: &Vec<u32>) -> u32{
         // this needs to be a member function because for example we could
         // have an array of structs, so we need access to the compiler's
         // data in order to know that size of each element in the array
@@ -962,19 +970,19 @@ mod tests{
         let scope_data = compiler.get_scope_data(&"sub_3".to_string()).unwrap();
         match &func_data.decl_data.args_types[0]{
             VariableType::Regular{_type} => {
-                assert_eq!(_type, "int");
+                assert!(matches!(_type, Type::Int));
             },
             _ => panic!(),
         }
         match &func_data.decl_data.args_types[1]{
             VariableType::Regular{_type} => {
-                assert_eq!(_type, "int");
+                assert!(matches!(_type, Type::Int));
             },
             _ => panic!(),
         }
         match &func_data.decl_data.args_types[2]{
             VariableType::Regular{_type} => {
-                assert_eq!(_type, "int");
+                assert!(matches!(_type, Type::Int));
             },
             _ => panic!(),
         }
@@ -1000,7 +1008,7 @@ mod tests{
         assert_eq!(x.offset, 0);
         assert_eq!(x.size, 1);
         if let VariableType::Regular{_type: t} = &x.var_type{
-            assert_eq!(t, "int");
+            assert!(matches!(t, Type::Int));
         } else{
             panic!();
         }

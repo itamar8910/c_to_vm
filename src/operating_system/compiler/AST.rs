@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use self::serde_json::Value as JsonNode;
 
+
 use std::process::Command;
 const PATH_TO_PY_EXEC: &str = "src/operating_system/compiler/parser/venv/bin/python";
 const PATH_TO_PARSER: &str = "src/operating_system/compiler/parser/to_ast_json.py";
@@ -79,7 +80,7 @@ impl FuncDef {
 pub struct FuncDecl {
     pub name: String,
     pub args: Vec<Decl>,
-    pub ret_type: String,
+    pub ret_type: Type,
 }
 impl FuncDecl {
     fn from(node: &JsonNode) -> Result<FuncDecl, AstError> {
@@ -97,7 +98,7 @@ impl FuncDecl {
         Ok(FuncDecl {
             name: node["name"].as_str().unwrap().to_string(),
             args: args,
-            ret_type: node["type"]["type"]["type"]["names"].as_array().unwrap()[0].as_str().unwrap().to_string(),
+            ret_type: Type::from(&node["type"]["type"]),
         })
     }
 }
@@ -191,6 +192,50 @@ impl Return {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum Type{
+    Int,
+    Char,
+    Void,
+    Ptr(Box<Type>),
+    Struct(String),
+}
+
+impl Type{
+    fn from(node: &JsonNode) -> Type{
+        match node["_nodetype"].as_str().unwrap(){
+            "TypeDecl" => {
+                match node["type"]["_nodetype"].as_str().unwrap(){
+                    "IdentifierType" => {
+                        match node["type"]["names"].as_array().unwrap()[0].as_str().unwrap(){
+                            "int" => Type::Int,
+                            "void" => Type::Void,
+                            _ => panic!("unsupported type"),
+                        }
+                    },
+                    "Struct" => {
+                        Type::Struct(node["type"]["name"].as_str().unwrap().to_string())
+                    },
+                    _ => panic!()
+                }
+            },
+            "PtrDecl" => {
+                let boxed_type = Type::from(&node["type"]);
+                Type::Ptr(Box::new(boxed_type))
+            },
+            _ => panic!(),
+        }
+    }
+
+    fn from_name(name: &str) -> Type{
+        match name{
+            "int" => Type::Int,
+            "char" => Type::Char,
+            _ => panic!("invalid name for type"),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum Decl{
     VarDecl(VarDecl),
@@ -209,14 +254,14 @@ impl Decl {
 #[derive(Clone)]
 pub struct VarDecl {
     pub name: String,
-    pub _type: String,
+    pub _type: Type,
     pub init: Option<Expression>,
 }
 
 impl VarDecl {
     fn from(node: &JsonNode) -> Result<VarDecl, AstError> {
         let name = node["name"].as_str().unwrap().to_string();
-        let mut _type = get_var_type(node);
+        let mut _type = get_decl_var_type(node);
         let init = match node["init"] {
             JsonNode::Object(_) => Some(Expression::from(&node["init"])?),
             JsonNode::Null => None,
@@ -224,7 +269,7 @@ impl VarDecl {
         };
         Ok(VarDecl {
             name: name,
-            _type: _type.to_string(),
+            _type: _type,
             init: init,
         })
     }
@@ -233,12 +278,12 @@ impl VarDecl {
 #[derive(Clone)]
 pub struct ArrayDecl{
   pub name: String,
-  pub _type: String,
+  pub _type: Type,
   pub dimentions: Vec<u32>,
   pub init: Option<Vec<Expression>>,
 }
 
-fn get_array_dimentions_and_type(node: &JsonNode) -> (Vec<u32>, String){
+fn get_array_dimentions_and_type(node: &JsonNode) -> (Vec<u32>, Type){
     let mut dimentions = Vec::new();
     let mut cur_node = &node["type"];
     while cur_node["type"]["_nodetype"] == "ArrayDecl"{
@@ -246,7 +291,7 @@ fn get_array_dimentions_and_type(node: &JsonNode) -> (Vec<u32>, String){
         cur_node = &cur_node["type"];
     }
     dimentions.push(cur_node["dim"]["value"].as_str().unwrap().to_string().parse::<u32>().unwrap());
-    (dimentions, get_var_type(cur_node))
+    (dimentions, get_decl_var_type(cur_node))
 }
 
 impl ArrayDecl {
@@ -288,27 +333,8 @@ impl StructDecl {
     }
 }
 
-fn get_var_type(node: &JsonNode) -> String{
-    match node["type"]["_nodetype"].as_str().unwrap(){
-        "TypeDecl" => {
-            match node["type"]["type"]["_nodetype"].as_str().unwrap(){
-                "IdentifierType" => {
-                    match node["type"]["type"]["names"].as_array().unwrap()[0].as_str().unwrap(){
-                        "int" => "int".to_string(),
-                        _ => panic!("invalid type"),
-                    }
-                },
-                "Struct" => {
-                    node["type"]["type"]["name"].as_str().unwrap().to_string()
-                },
-                _ => panic!(),
-            }
-        }
-        "PtrDecl" => {
-            "int*".to_string()
-        },
-        _ => panic!(),
-    }
+fn get_decl_var_type(node: &JsonNode) -> Type{
+    Type::from(&node["type"])
 }
 
 #[derive(Clone)]
@@ -349,14 +375,14 @@ impl Expression {
 
 #[derive(Clone)]
 pub struct Constant {
-    pub _type: String,
+    pub _type: Type,
     pub val: String,
 }
 
 impl Constant {
     fn from(node: &JsonNode) -> Result<Constant, AstError> {
         Ok(Constant {
-            _type: node["type"].as_str().unwrap().to_string(),
+            _type: Type::from_name(node["type"].as_str().unwrap()),
             val: node["value"].as_str().unwrap().to_string(),
         })
     }
@@ -767,11 +793,12 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.ret_type, "int");
+                assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[0] {
                     Statement::Return(ret) => match &ret.expr {
                         Expression::Constant(c) => {
-                            assert_eq!(c._type, "int");
+                            
+                            assert!(matches!(c._type, Type::Int));
                             assert_eq!(c.val, "2");
                         }
                         _ => panic!(),
@@ -790,7 +817,7 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.ret_type, "int");
+                assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[0] {
                     Statement::Return(ret) => match &ret.expr {
                         Expression::BinaryOp(bop) => {
@@ -817,13 +844,13 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.ret_type, "int");
+                                assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[0] {
                     Statement::Decl(decl) => {
                         match decl{
                             Decl::VarDecl(var_decl) => {
                                 assert_eq!(var_decl.name, "a");
-                                assert_eq!(var_decl._type, "int");
+                                assert!(matches!(var_decl._type, Type::Int));
                                 if let Some(Expression::Constant(c)) = &var_decl.init {
                                     assert_eq!(c.val, "2");
                                 } else {
@@ -847,7 +874,7 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.ret_type, "int");
+                assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[2] {
                     Statement::If(if_stmt) => {
                         if let Expression::ID(id) = &if_stmt.cond {
@@ -879,7 +906,7 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.ret_type, "int");
+                assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[1] {
                     Statement::If(if_stmt) => {
                         if let Expression::BinaryOp(bop) = &if_stmt.cond {
@@ -917,7 +944,7 @@ mod tests {
         match &ast_root.externals[0] {
             External::FuncDef(func_def) => {
                 assert_eq!(func_def.decl.name, "main");
-                assert_eq!(func_def.decl.ret_type, "int");
+                assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[1] {
                     Statement::Return(ret) => {
                         if let Expression::TernaryOp(top) = &ret.expr {
@@ -1080,21 +1107,21 @@ mod tests {
                 match &args[0]{
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "x");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
                 match &args[1]{
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "y");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
                 match &args[2]{
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "z");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
@@ -1141,7 +1168,7 @@ mod tests {
                         match decl{
                             Decl::ArrayDecl(array_decl) => {
                                 assert_eq!(array_decl.name, "arr");
-                                assert_eq!(array_decl._type, "int");
+                                assert!(matches!(array_decl._type, Type::Int));
                                 assert_eq!(array_decl.dimentions.len(), 1);
                                 assert_eq!(array_decl.dimentions[0], 2);
                             },
@@ -1155,7 +1182,7 @@ mod tests {
                         match decl{
                             Decl::ArrayDecl(array_decl) => {
                                 assert_eq!(array_decl.name, "arr");
-                                assert_eq!(array_decl._type, "int");
+                                assert!(matches!(array_decl._type, Type::Int));
                                 assert_eq!(array_decl.dimentions.len(), 2);
                                 assert_eq!(array_decl.dimentions[0], 2);
                                 assert_eq!(array_decl.dimentions[1], 5);
@@ -1170,7 +1197,9 @@ mod tests {
                         match decl{
                             Decl::ArrayDecl(array_decl) => {
                                 assert_eq!(array_decl.name, "arr");
-                                assert_eq!(array_decl._type, "int*");
+                                if let Type::Ptr(x) = &array_decl._type{
+                                    assert!(matches!(**x, Type::Int));
+                                } else {panic!()}
                                 assert_eq!(array_decl.dimentions.len(), 3);
                                 assert_eq!(array_decl.dimentions[0], 2);
                                 assert_eq!(array_decl.dimentions[1], 5);
@@ -1271,21 +1300,21 @@ mod tests {
                 match struct_decl.items.get("x").as_ref().unwrap(){
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "x");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
                 match struct_decl.items.get("y").as_ref().unwrap(){
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "y");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
                 match struct_decl.items.get("z").as_ref().unwrap(){
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "z");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
@@ -1299,8 +1328,10 @@ mod tests {
                         match decl{
                             Decl::VarDecl(var_decl) => {
                                 assert_eq!(var_decl.name, "a");
-                                assert_eq!(var_decl._type, "A");
-                            },
+                                if let Type::Struct(x) = &var_decl._type{
+                                    assert_eq!(x, "A");
+                                } else {panic!()}
+                                },
                             _ => panic!(),
                         }
                     },
@@ -1330,14 +1361,14 @@ mod tests {
                 match struct_decl.items.get("x").as_ref().unwrap(){
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "x");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
                 match struct_decl.items.get("y").as_ref().unwrap(){
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "y");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
@@ -1349,21 +1380,23 @@ mod tests {
                 match struct_decl.items.get("x").as_ref().unwrap(){
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "x");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
                 match struct_decl.items.get("y").as_ref().unwrap(){
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "y");
-                        assert_eq!(var_decl._type, "int");
+                        assert!(matches!(var_decl._type, Type::Int));
                     },
                     _ => panic!(),
                 }
                 match struct_decl.items.get("a").as_ref().unwrap(){
                     Decl::VarDecl(var_decl) => {
                         assert_eq!(var_decl.name, "a");
-                        assert_eq!(var_decl._type, "A");
+                                if let Type::Struct(x) = &var_decl._type{
+                                    assert_eq!(x, "A");
+                                } else {panic!()}
                     },
                     _ => panic!(),
                 }
@@ -1377,7 +1410,9 @@ mod tests {
                         match decl{
                             Decl::VarDecl(var_decl) => {
                                 assert_eq!(var_decl.name, "b");
-                                assert_eq!(var_decl._type, "B");
+                                if let Type::Struct(x) = &var_decl._type{
+                                    assert_eq!(x, "B");
+                                } else {panic!()}
                             },
                             _ => panic!(),
                         }

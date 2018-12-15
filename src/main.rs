@@ -1,3 +1,4 @@
+#[macro_use] extern crate matches;
 mod cpu;
 mod operating_system;
 
