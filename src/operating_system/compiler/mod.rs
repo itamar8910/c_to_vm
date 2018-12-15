@@ -2,6 +2,9 @@
 use std::fs::File;
 use std::io::prelude::*;
 
+extern crate regex;
+use regex::Regex;
+
 extern crate serde_json;
 
 extern crate tempfile;
@@ -127,7 +130,20 @@ impl Compiler {
     fn right_gen(&mut self, node: &Expression, scope: &String, code: &mut Vec<String>) {
         match node {
             Expression::Constant(c) => {
-                let const_val = &c.val;
+                let const_val = match &c._type{
+                    Type::Int => {
+                        c.val.clone()
+                    },
+                    Type::Char => {
+                        println!("extrating char value from:{}", c.val);
+                        // pasre char value & return ascii value
+                        let char_re = Regex::new(r"'(\w)'").unwrap();
+                        let c = &char_re.captures(&c.val).unwrap()[1];
+                        let c = &c.chars().collect::<Vec<char>>()[0];
+                        (*c as u8).to_string()
+                    },
+                    _ => panic!("Invalid type for constant")
+                };
                 code.push(format!("MOV R1 {}", const_val));
             }
             Expression::BinaryOp(op) => {
@@ -711,6 +727,7 @@ impl Compiler {
         }
         match _type{
             Type::Int => 1,
+            Type::Char => 1,
             Type::Ptr(_) => 1,
             Type::Void => 0,
             _ => panic!("invalid type")

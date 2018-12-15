@@ -209,6 +209,7 @@ impl Type{
                     "IdentifierType" => {
                         match node["type"]["names"].as_array().unwrap()[0].as_str().unwrap(){
                             "int" => Type::Int,
+                            "char" => Type::Char,
                             "void" => Type::Void,
                             _ => panic!("unsupported type"),
                         }
@@ -866,6 +867,7 @@ mod tests {
             _ => panic!(),
         }
     }
+    // 
 
     #[test]
     fn if_without_else() {
@@ -1436,4 +1438,34 @@ mod tests {
         }
     }
 
+    #[test]
+    fn char_var() {
+        let ast_root = get_ast("tests/compiler_test_data/chars/inputs/1.c");
+        assert_eq!(ast_root.externals.len(), 1);
+        match &ast_root.externals[0] {
+            External::FuncDef(func_def) => {
+                assert_eq!(func_def.decl.name, "main");
+                                assert!(matches!(func_def.decl.ret_type, Type::Int));
+                match &func_def.body.items[0] {
+                    Statement::Decl(decl) => {
+                        match decl{
+                            Decl::VarDecl(var_decl) => {
+                                assert_eq!(var_decl.name, "c1");
+                                assert!(matches!(var_decl._type, Type::Char));
+                                if let Some(Expression::Constant(c)) = &var_decl.init {
+                                    assert_eq!(c.val, "'a'");
+                                    assert!(matches!(c._type, Type::Char));
+                                } else {
+                                    panic!();
+                                }
+                            },
+                            _ => panic!(),
+                        }
+                }
+                    _ => panic!(),
+                }
+            }
+            _ => panic!(),
+        }
+    }
 }

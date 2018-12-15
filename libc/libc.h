@@ -1,1 +1,1 @@
-void putc(int c);
+void putc(char c);
