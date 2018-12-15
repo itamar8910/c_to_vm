@@ -194,6 +194,11 @@ impl OS {
         self.assemble_link_and_run(vec![program])
     }
 
+    pub fn assemble_and_run_no_std(&mut self, program: &str) -> i32{
+        let (instructions, _) = assemble_and_link(vec![program]);
+        self.load_and_run(instructions)
+    }
+
     pub fn debug_program(&mut self, instructions: Vec<Instruction>, symbol_table: HashMap<String, u32>) -> i32{
         self.reset_cpu_state();
         self.load_program(&instructions, PROGRAM_INIT_ADDRESS);
