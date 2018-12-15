@@ -117,9 +117,9 @@ impl Cpu {
                 self.mem
                     .set(self.regs.get(dst) as u32, MemEntry::Num(src_val));
             }
-            DataOp::MOV => {
+            DataOp::MOV | DataOp::LEA => {
                 self.regs.set(dst, src_val);
-            }
+            },
         }
     }
     fn execute_stack(&mut self, op: &StackOp, dst: &Register) {

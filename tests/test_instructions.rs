@@ -597,6 +597,26 @@ fn test_recursion_fiboncci() {
 }
 
 #[test]
+fn test_data_and_lea() {
+    let program = "
+    .stringz s1 hello
+    .stringz s2 world
+    LEA R1 s1
+    ADD R1 R1 1
+    LOAD R1 R1
+    LEA R2 s2
+    ADD R2 R2 2
+    LOAD R2 R2
+    HALT
+    ";
+    let mut os = OS::new();
+    let _res = os.assemble_and_run_no_std(program);
+    assert_eq!(os.cpu.regs.get(&Register::R1), 'e' as i32);
+    assert_eq!(os.cpu.regs.get(&Register::R2), 'r' as i32);
+
+}
+
+#[test]
 fn test_program_ret_val() {
     let program = "
     MAIN:

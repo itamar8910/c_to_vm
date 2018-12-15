@@ -133,6 +133,7 @@ pub enum DataOp {
     LOAD,
     STR,
     MOV,
+    LEA, // load efective address, for loading stuff from data section
 }
 
 impl FromStr for DataOp {
@@ -142,6 +143,7 @@ impl FromStr for DataOp {
             "LOAD" => Ok(DataOp::LOAD),
             "STR" => Ok(DataOp::STR),
             "MOV" => Ok(DataOp::MOV),
+            "LEA" => Ok(DataOp::LEA),
             _ => Err(()),
         }
     }

@@ -197,6 +197,7 @@ pub enum Type{
     Int,
     Char,
     Void,
+    _String,
     Ptr(Box<Type>),
     Struct(String),
 }
