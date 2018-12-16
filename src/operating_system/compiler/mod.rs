@@ -107,18 +107,28 @@ pub struct Compiler {
     func_to_data: HashMap<String, FuncData>,
     struct_to_data: HashMap<String, StructData>,
     data_val_to_label: HashMap<String, String>,
-    tmp_label_count: u32,
+    program_index: u32,  // hack to keep tmp labels from colliding accross different programs. OS is in charge of passing different indices
+    cur_tmp_label: u32,
 }
 
 impl Compiler {
-    pub fn new() -> Compiler {
+    pub fn new(program_i : u32) -> Compiler {
         Compiler {
             scope_to_data: HashMap::new(),
             func_to_data: HashMap::new(),
             struct_to_data: HashMap::new(),
             data_val_to_label: HashMap::new(),
-            tmp_label_count: 0,
+            program_index: program_i,
+            cur_tmp_label: 0,
         }
+    }
+
+    fn get_tmp_label(&self) -> String{
+        format!("{}_{}", self.program_index, self.cur_tmp_label)
+    }
+
+    fn inc_tmp_label(&mut self){
+        self.cur_tmp_label += 1;
     }
 
     fn get_scope_data(&self, scope: &String) -> Option<& ScopeData>{
@@ -131,8 +141,8 @@ impl Compiler {
 
     fn maybe_add_string_data(&mut self, s: &String, code: &mut Vec<String>) -> &String{
         if !self.data_val_to_label.contains_key(s) {
-            let label = format!("STR_{}", self.tmp_label_count);
-            self.tmp_label_count += 1;
+            let label = format!("STR_{}", self.get_tmp_label());
+            self.inc_tmp_label();
             code.push(format!(".stringz {} {}", label, s));
             self.data_val_to_label.insert(s.clone(), label);
         }
@@ -287,9 +297,9 @@ impl Compiler {
                 self.gen_assignment_code(ass, &scope, code);
             }
             Expression::TernaryOp(top) => {
-                let neg_label = format!("TERNARY_{}_NO", self.tmp_label_count);
-                let ternary_end_label = format!("TERNARY_{}_YES", self.tmp_label_count);
-                self.tmp_label_count += 1;
+                let neg_label = format!("TERNARY_{}_NO", self.get_tmp_label());
+                let ternary_end_label = format!("TERNARY_{}_YES", self.get_tmp_label());
+                self.inc_tmp_label();
                 self.right_gen(&top.cond, &scope, code);
                 code.push("TSTN R1 0".to_string());
                 code.push(format!("FJMP {}", neg_label));
@@ -585,9 +595,9 @@ impl Compiler {
                         self.right_gen(&exp, &scope, code);
                     }
                     Statement::If(if_stmt) => {
-                        let else_label = format!("IF_{}_ELSE", self.tmp_label_count);
-                        let if_end_label = format!("IF_{}_END", self.tmp_label_count);
-                        self.tmp_label_count += 1;
+                        let else_label = format!("IF_{}_ELSE", self.get_tmp_label());
+                        let if_end_label = format!("IF_{}_END", self.get_tmp_label());
+                        self.inc_tmp_label();
                         self.right_gen(&if_stmt.cond, &scope, code);
                         code.push("TSTN R1 0".to_string());
                         code.push(format!("FJMP {}", else_label));
@@ -606,9 +616,9 @@ impl Compiler {
                         self.code_gen(AstNode::Compound(&comp), &comp.code_loc, code);
                     },
                     Statement::WhileLoop(wl) => {
-                        let while_start = format!("WHILE_{}_START", self.tmp_label_count);
-                        let while_end = format!("WHILE_{}_END", self.tmp_label_count);
-                        self.tmp_label_count += 1;
+                        let while_start = format!("WHILE_{}_START", self.get_tmp_label());
+                        let while_end = format!("WHILE_{}_END", self.get_tmp_label());
+                        self.inc_tmp_label();
                         self.update_scope_break_continue_labels(&wl.code_loc, &while_end, &while_start);
                         code.push(format!("{}:", while_start));
                         self.right_gen(&wl.cond, scope, code);
@@ -619,10 +629,10 @@ impl Compiler {
                         code.push(format!("{}:", while_end));
                     },
                     Statement::DoWhileLoop(dwl) => {
-                        let dowhile_cond = format!("DOWHILE_{}_COND", self.tmp_label_count);
-                        let dowhile_body = format!("DOWHILE_{}_BODY", self.tmp_label_count);
-                        let dowhile_end = format!("DOWHILE_{}_END", self.tmp_label_count);
-                        self.tmp_label_count += 1;
+                        let dowhile_cond = format!("DOWHILE_{}_COND", self.get_tmp_label());
+                        let dowhile_body = format!("DOWHILE_{}_BODY", self.get_tmp_label());
+                        let dowhile_end = format!("DOWHILE_{}_END", self.get_tmp_label());
+                        self.inc_tmp_label();
                         self.update_scope_break_continue_labels(&dwl.code_loc, &dowhile_end, &dowhile_cond);
                         code.push(format!("JUMP {}", dowhile_body));
                         code.push(format!("{}:", dowhile_cond));
@@ -635,10 +645,10 @@ impl Compiler {
                         code.push(format!("{}:", dowhile_end));
                     },
                     Statement::ForLoop(fl) => {
-                        let for_cond = format!("FOR_{}_COND", self.tmp_label_count);
-                        let for_end = format!("FOR_{}_END", self.tmp_label_count);
-                        let for_next = format!("FOR_{}_NEXT", self.tmp_label_count);
-                        self.tmp_label_count += 1;
+                        let for_cond = format!("FOR_{}_COND", self.get_tmp_label());
+                        let for_end = format!("FOR_{}_END", self.get_tmp_label());
+                        let for_next = format!("FOR_{}_NEXT", self.get_tmp_label());
+                        self.inc_tmp_label();
                         self.update_scope_break_continue_labels(&fl.code_loc, &for_end, &for_next);
                         if let Some(init) = &fl.init{
                             self.code_gen(AstNode::Compound(init), &fl.code_loc, code);
@@ -953,8 +963,8 @@ impl Compiler {
         code
     }
 
-    pub fn compile(path_to_c_source: &str) -> String {
-        let mut instance = Compiler::new();
+    pub fn compile(path_to_c_source: &str, program_index: u32) -> String {
+        let mut instance = Compiler::new(program_index);
         let instructions = instance._compile(path_to_c_source);
         instructions.join("\n")
     }
@@ -965,7 +975,7 @@ mod tests{
     use super::*;
     #[test]
     fn find_variable(){
-        let mut compiler = Compiler::new();
+        let mut compiler = Compiler::new(0);
         compiler._compile("tests/compiler_test_data/variables/inputs/assign.c");
         let _a_var = compiler.find_variable(&"a".to_string(), &"main".to_string()).unwrap();
         let b_var = compiler.find_variable(&"b".to_string(), &"main".to_string());
@@ -973,7 +983,7 @@ mod tests{
     }
     #[test] #[ignore]
     fn find_nested_scope(){
-        let mut compiler = Compiler::new();
+        let mut compiler = Compiler::new(0);
         compiler._compile("tests/compiler_test_data/scopes/inputs/declare_block.c");
         println!("{:?}", compiler.scope_to_data);
         assert_eq!(compiler.scope_to_data.len(), 3);
@@ -985,7 +995,7 @@ mod tests{
     #[test] #[ignore]
 
     fn find_break_continue_labels(){
-        let mut compiler = Compiler::new();
+        let mut compiler = Compiler::new(0);
         compiler._compile("tests/compiler_test_data/loops/inputs/while_multi_statement.c");
         println!("{:?}", compiler.scope_to_data);
         assert_eq!(compiler.scope_to_data.len(), 3);
@@ -999,7 +1009,7 @@ mod tests{
     }
     #[test]
     fn function_args(){
-        let mut compiler = Compiler::new();
+        let mut compiler = Compiler::new(0);
         compiler._compile("tests/compiler_test_data/functions/inputs/multi_arg.c");
         println!("{:?}", compiler.scope_to_data);
         let func_data = compiler.get_func_data(&"sub_3".to_string()).unwrap();
@@ -1034,7 +1044,7 @@ mod tests{
 
     #[test]
     fn struct_registration(){
-        let mut compiler = Compiler::new();
+        let mut compiler = Compiler::new(0);
         compiler._compile("tests/compiler_test_data/structs/inputs/1.c");
         let struct_data = compiler.struct_to_data.get("A").unwrap();
         assert_eq!(struct_data.name, "A");

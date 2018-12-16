@@ -53,8 +53,8 @@ struct CompilerTestCase{
 
 fn test_single(test_case: &CompilerTestCase){
     println!("{}:{},{}", test_case.category, Path::new(&test_case.input_f).file_name().unwrap().to_str().unwrap(), Path::new(&test_case.target_f).file_name().unwrap().to_str().unwrap());
-    let program = Compiler::compile(&test_case.input_f);
     let mut os = OS::new();
+    let program = os.compile(&test_case.input_f);
     let res = os.assemble_and_run(&program);
     let mut tar_f = File::open(&test_case.target_f).unwrap();
     let mut tar_content = String::new();

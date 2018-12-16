@@ -22,14 +22,17 @@ pub struct OS {
     pub out_chars : Vec<char>,
     pub inp_chars : Vec<char>,
     std_programs: Vec<String>,
+    compiled_programs_count: u32, // hack to keep compiler tmp labels from colliding
 }
 
 impl OS {
     pub fn new() -> OS {
         let mut std_programs = Vec::new();
-        std_programs.push(Compiler::compile("libc/libc.c"));
+        let num_std_programs = 1;
+        std_programs.push(Compiler::compile("libc/libc.c", num_std_programs));
+        assert_eq!(std_programs.len() as u32, num_std_programs);
         let mut instance = OS { cpu: Cpu::new() , out_chars: Vec::new(), inp_chars: Vec::new(),
-            std_programs};
+            std_programs, compiled_programs_count: num_std_programs};
         instance.initialize_memory();
         instance
     }
@@ -210,6 +213,12 @@ impl OS {
     pub fn assemble_and_debug(&mut self, programs: Vec<&str>) -> i32 {
         let exec = assemble_and_link(programs);
         self.debug_program(&exec)
+    }
+
+    pub fn compile(&mut self, path_to_c_source: &str) -> String{
+        let res = Compiler::compile(path_to_c_source, self.compiled_programs_count);
+        self.compiled_programs_count += 1;
+        res
     }
 
 }

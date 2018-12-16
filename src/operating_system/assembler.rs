@@ -1,6 +1,8 @@
 use crate::cpu::instructions::*;
 use super::layout::DATA_INIT_ADDRESS;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::hash_set::Intersection;
 use std::str::FromStr;
 
 fn is_label(line: &str) -> bool {
@@ -108,6 +110,12 @@ pub struct Executable{
     pub data_table: HashMap<String, u32>,
 }
 
+fn hashmaps_key_intersection(set1: &HashMap<String, u32>, set2: &HashMap<String, u32>) -> Vec<String>{
+    let keyset1 : HashSet<String> = set1.keys().into_iter().map(|s| s.clone()).collect();
+    let keyset2 : HashSet<String> = set2.keys().into_iter().map(|s| s.clone()).collect();
+    keyset1.intersection(&keyset2).into_iter().map(|s| s.clone()).collect()
+}
+
 pub fn assemble_and_link(programs: Vec<&str>) -> Executable {
     let mut symbol_table = HashMap::new();
     let mut data_table = HashMap::new();
@@ -126,6 +134,14 @@ pub fn assemble_and_link(programs: Vec<&str>) -> Executable {
         cur_rel_address += program_size;
         cur_data_size += program_data.len() as u32;
         data.append(&mut program_data);
+        let symbol_intersect = hashmaps_key_intersection(&symbol_table, &program_symbol_table);
+        let data_intersect = hashmaps_key_intersection(&data_table, &program_data_table);
+        if symbol_intersect.len() != 0{
+            panic!("duplicate symbols between programs: {:?}", symbol_intersect);
+        }
+        if data_intersect.len() != 0{
+            panic!("duplicate data labels between programs: {:?}", data_intersect);
+        }
         symbol_table.extend(program_symbol_table);
         data_table.extend(program_data_table);
     }
