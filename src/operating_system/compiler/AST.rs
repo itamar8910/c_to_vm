@@ -233,6 +233,7 @@ impl Type{
         match name{
             "int" => Type::Int,
             "char" => Type::Char,
+            "string" => Type::_String,
             _ => panic!("invalid name for type"),
         }
     }

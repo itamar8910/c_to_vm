@@ -106,6 +106,7 @@ pub struct Compiler {
     scope_to_data: HashMap<String, ScopeData>,
     func_to_data: HashMap<String, FuncData>,
     struct_to_data: HashMap<String, StructData>,
+    data_val_to_label: HashMap<String, String>,
     tmp_label_count: u32,
 }
 
@@ -115,6 +116,7 @@ impl Compiler {
             scope_to_data: HashMap::new(),
             func_to_data: HashMap::new(),
             struct_to_data: HashMap::new(),
+            data_val_to_label: HashMap::new(),
             tmp_label_count: 0,
         }
     }
@@ -127,24 +129,41 @@ impl Compiler {
         self.scope_to_data.get_mut(scope)
     }
 
+    fn maybe_add_string_data(&mut self, s: &String, code: &mut Vec<String>) -> &String{
+        if !self.data_val_to_label.contains_key(s) {
+            let label = format!("STR_{}", self.tmp_label_count);
+            self.tmp_label_count += 1;
+            code.push(format!(".stringz {} {}", label, s));
+            self.data_val_to_label.insert(s.clone(), label);
+        }
+        self.data_val_to_label.get(s).unwrap()
+    }
+
     fn right_gen(&mut self, node: &Expression, scope: &String, code: &mut Vec<String>) {
         match node {
             Expression::Constant(c) => {
-                let const_val = match &c._type{
+                match &c._type{
                     Type::Int => {
-                        c.val.clone()
+                        let const_val = c.val.clone();
+                        code.push(format!("MOV R1 {}", const_val));
                     },
                     Type::Char => {
-                        println!("extrating char value from:{}", c.val);
                         // pasre char value & return ascii value
                         let char_re = Regex::new(r"'(\w)'").unwrap();
                         let c = &char_re.captures(&c.val).unwrap()[1];
                         let c = &c.chars().collect::<Vec<char>>()[0];
-                        (*c as u8).to_string()
+                        let const_val = (*c as u8).to_string();
+                        code.push(format!("MOV R1 {}", const_val));
                     },
+                    Type::_String => {
+                        // regex to remove string's quotes
+                        let str_re = Regex::new(r#""(\w+)""#).unwrap();
+                        let s = &str_re.captures(&c.val).unwrap()[1];
+                        let string_label = self.maybe_add_string_data(&s.to_string(), code);
+                        code.push(format!("LEA R1 {}", string_label));
+                    }
                     _ => panic!("Invalid type for constant")
                 };
-                code.push(format!("MOV R1 {}", const_val));
             }
             Expression::BinaryOp(op) => {
                 self.right_gen(&op.left, &scope, code);
