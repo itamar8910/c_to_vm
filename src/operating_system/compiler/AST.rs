@@ -487,15 +487,18 @@ impl BinaryopType {
 pub struct UnaryOp {
     pub op_type: UnaryopType,
     pub expr: Box<Expression>,
+    pub id: Option<ID>, // will be Some for unary ops that operate on a variable, e.g x++
 }
 
 impl UnaryOp {
     fn from(node: &JsonNode) -> Result<UnaryOp, AstError> {
         let expr = Box::new(Expression::from(&node["expr"])?);
         let op_type = UnaryopType::from(&node["op"])?;
+        let id = if node["expr"]["_nodetype"].as_str().unwrap() == "ID" {Some(ID::from(&node["expr"]).unwrap())} else {None};
         Ok(UnaryOp {
-            op_type: op_type,
-            expr: expr,
+            op_type,
+            expr,
+            id
         })
     }
 }

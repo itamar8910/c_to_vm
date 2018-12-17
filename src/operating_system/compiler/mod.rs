@@ -237,7 +237,7 @@ impl Compiler {
                 }
             }
             Expression::UnaryOp(op) => {
-                match op.op_type {
+                match &op.op_type {
                     UnaryopType::NEG => {
                         self.right_gen(&op.expr, &scope, code);
                         code.push("NEG R1".to_string());
@@ -247,38 +247,53 @@ impl Compiler {
                         code.push("TSTE R1 0".to_string());
                         code.push("MOV R1 ZR".to_string());
                     }
-                    UnaryopType::PPX | UnaryopType::MMX => {
+                    UnaryopType::PPX | UnaryopType::MMX | UnaryopType::XPP | UnaryopType::XMM => {
                         self.left_gen(&op.expr, &scope, code);
-                        code.push("LOAD R2 R1".to_string());
-                        // let add_or_sub = match op.op_type{
-                        //     UnaryopType::PPX()
-                        // }
-                        code.push(format!(
-                            "{} R2 R2 1",
-                            if op.op_type == UnaryopType::PPX {
-                                "ADD"
-                            } else {
-                                "SUB"
-                            }
-                        ));
-                        code.push("STR R1 R2".to_string());
-                        code.push("MOV R1 R2".to_string());
+                        let var_name = &op.id.as_ref().expect("op must be on a variable").name;
+                        let var = self.find_variable(var_name, scope).unwrap();
+                        let delta = match &var.var_type{
+                            VariableType::Regular {_type: t} => {
+                                if let Type::Ptr(ref pointed_t) = t{
+                                    self.get_type_size(pointed_t)
+                                }else{
+                                    1
+                                }
+                            },
+                            VariableType::Array {..} => 1,
+                        };
+                        match &op.op_type{
+                            UnaryopType::PPX | UnaryopType::MMX => {
+                                code.push("LOAD R2 R1".to_string());
+                                code.push(format!(
+                                    "{} R2 R2 {}",
+                                    if op.op_type == UnaryopType::PPX {
+                                        "ADD"
+                                    } else {
+                                        "SUB"
+                                    },
+                                    delta,
+                                ));
+                                code.push("STR R1 R2".to_string());
+                                code.push("MOV R1 R2".to_string());
+                            },
+                            UnaryopType::XPP | UnaryopType::XMM => {
+                                code.push("LOAD R2 R1".to_string());
+                                code.push("PUSH R2".to_string());
+                                code.push(format!(
+                                    "{} R2 R2 {}",
+                                    if op.op_type == UnaryopType::XPP {
+                                        "ADD"
+                                    } else {
+                                        "SUB"
+                                    },
+                                    delta,
+                                ));
+                                code.push("STR R1 R2".to_string());
+                                code.push("POP R1".to_string());
+                            },
+                            _ => panic!() // impossible execution path..
+                        }
                     }
-                    UnaryopType::XPP | UnaryopType::XMM => {
-                        self.left_gen(&op.expr, &scope, code);
-                        code.push("LOAD R2 R1".to_string());
-                        code.push("PUSH R2".to_string());
-                        code.push(format!(
-                            "{} R2 R2 1",
-                            if op.op_type == UnaryopType::XPP {
-                                "ADD"
-                            } else {
-                                "SUB"
-                            }
-                        ));
-                        code.push("STR R1 R2".to_string());
-                        code.push("POP R1".to_string());
-                    },
                     UnaryopType::REF => {
                         self.left_gen(&op.expr, scope, code);
                     },
@@ -581,7 +596,7 @@ impl Compiler {
                             Decl::ArrayDecl(arr_decl) => {
                                 self.update_var_declared(&arr_decl.name, scope);
                                 if let Some(init) = &arr_decl.init{
-                                    self.get_arr_init_code(&arr_decl.name, init, scope, code);
+                                    self.gen_arr_init_code(&arr_decl.name, init, scope, code);
                                 }
                                                         
                             }
@@ -683,7 +698,7 @@ impl Compiler {
         }
     }
 
-    fn get_arr_init_code(&mut self, arr_name: &String, arr_init: &Vec<Expression>, scope: &String, code: &mut Vec<String>){
+    fn gen_arr_init_code(&mut self, arr_name: &String, arr_init: &Vec<Expression>, scope: &String, code: &mut Vec<String>){
         let arr_var = self.find_variable(arr_name, scope).expect("array not found");
         match &arr_var.var_type{
             VariableType::Array{_type, dimentions} => {
