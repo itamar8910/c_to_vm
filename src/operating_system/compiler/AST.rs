@@ -1236,7 +1236,7 @@ mod tests {
                     Statement::Assignment(ass) => {
                         match &*ass.lvalue{
                             Expression::NameRef(NameRef::ArrayRef(array_ref)) => {
-                                if let NameRef::ID(id) = &**array_ref.name{
+                                if let NameRef::ID(id) = &*array_ref.name{
                                     assert_eq!(id.name, "arr");
                                 }else{
                                     panic!();
@@ -1358,8 +1358,12 @@ mod tests {
                     Statement::Assignment(ass) => {
                         match &*ass.lvalue {
                             Expression::NameRef(NameRef::StructRef(struct_ref)) => {
-                                assert_eq!(struct_ref.name, "a");
-                                assert_eq!(struct_ref.field_names, vec!["z"]);
+                                if let NameRef::ID(id) = &*struct_ref.name{
+                                    assert_eq!(id.name, "a");
+                                } else{
+                                    panic!();
+                                }
+                                assert_eq!(struct_ref.field, "z");
                             },
                         _ => panic!(),
                         };
@@ -1440,12 +1444,17 @@ mod tests {
                     Statement::Assignment(ass) => {
                         match &*ass.lvalue {
                             Expression::NameRef(NameRef::StructRef(struct_ref)) => {
-                                if let NameRef::ID(id) = &*struct_ref.name{
-                                    assert_eq!(id.name, "b");
+                                assert_eq!(struct_ref.field, "y");
+                                if let NameRef::StructRef(inner_struct_ref) = &*struct_ref.name{
+                                    assert_eq!(inner_struct_ref.field, "a");
+                                    if let NameRef::ID(id) = &*inner_struct_ref.name{
+                                        assert_eq!(id.name, "b");
+                                    } else{
+                                        panic!();
+                                    }
                                 } else{
                                     panic!();
                                 }
-                                assert_eq!(struct_ref.field_names, vec!["a", "y"]);
                             },
                         _ => panic!(),
                         };
