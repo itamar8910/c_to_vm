@@ -4,3 +4,4 @@
 .vscode/
 example.c
 tests/generated_compiler_tests.rs
+a.out

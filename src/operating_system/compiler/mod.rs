@@ -456,7 +456,7 @@ impl Compiler {
                 // hiding from the borrow checker
                 let indices = array_ref.indices.clone();
                 assert_eq!(indices.len(), dimentions.len());
-                for (idx_expr, dimsize) in indices.iter().zip(dimentions){
+                for (idx_expr, dimsize) in indices.iter().zip(dimentions).rev(){
                     code.push("PUSH R2".to_string()); // save R2
                     self.right_gen(idx_expr, scope, code);
                     code.push("POP R2".to_string());
