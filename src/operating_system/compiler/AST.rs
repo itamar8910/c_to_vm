@@ -756,7 +756,7 @@ impl ArrayRef {
             indices.push(Box::new(Expression::from(&cur_node["subscript"])?));
             cur_node = &cur_node["name"];
         }
-        let name = Box::new(NameRef::from(&node["name"])?);
+        let name = Box::new(NameRef::from(&cur_node)?);
         indices.reverse();
         Ok(ArrayRef{
             name,
