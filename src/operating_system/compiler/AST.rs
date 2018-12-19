@@ -103,7 +103,7 @@ impl FuncDecl {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Compound {
     pub items: Vec<Statement>,
     pub code_loc: String, // needed for scope id
@@ -144,7 +144,7 @@ impl Compound {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Statement {
     Return(Return),
     Decl(Decl),
@@ -179,7 +179,7 @@ impl Statement {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Return {
     pub expr: Expression,
 }
@@ -239,7 +239,7 @@ impl Type{
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Decl{
     VarDecl(VarDecl),
     ArrayDecl(ArrayDecl),
@@ -254,7 +254,7 @@ impl Decl {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct VarDecl {
     pub name: String,
     pub _type: Type,
@@ -278,7 +278,7 @@ impl VarDecl {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ArrayDecl{
   pub name: String,
   pub _type: Type,
@@ -317,7 +317,7 @@ impl ArrayDecl {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StructDecl{
     pub name: String,
     pub items: LinkedHashMap<String, Decl>,
@@ -340,17 +340,35 @@ fn get_decl_var_type(node: &JsonNode) -> Type{
     Type::from(&node["type"])
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
+pub enum NameRef {
+    ID(ID),
+    ArrayRef(ArrayRef),
+    StructRef(StructRef),
+}
+
+impl NameRef {
+    fn from(node: &JsonNode) -> Result<NameRef, AstError> {
+        println!("nameref from: {}", node);
+        match node["_nodetype"].as_str().unwrap() {
+            "ID" => Ok(NameRef::ID(ID::from(&node)?)),
+            "ArrayRef" => Ok(NameRef::ArrayRef(ArrayRef::from(&node)?)),
+            "StructRef" => Ok(NameRef::StructRef(StructRef::from(&node)?)),
+            _ => Err(()),
+        }
+    }
+}
+
+
+#[derive(Clone, Debug)]
 pub enum Expression {
     Constant(Constant),
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
-    ID(ID),
     Assignment(Assignment),
     TernaryOp(TernaryOp),
     FuncCall(FuncCall),
-    ArrayRef(ArrayRef),
-    StructRef(StructRef),
+    NameRef(NameRef),
 }
 
 impl Expression {
@@ -359,12 +377,10 @@ impl Expression {
             "Constant" => Ok(Expression::Constant(Constant::from(&node)?)),
             "BinaryOp" => Ok(Expression::BinaryOp(BinaryOp::from(&node)?)),
             "UnaryOp" => Ok(Expression::UnaryOp(UnaryOp::from(&node)?)),
-            "ID" => Ok(Expression::ID(ID::from(&node)?)),
             "Assignment" => Ok(Expression::Assignment(Assignment::from(&node)?)),
             "TernaryOp" => Ok(Expression::TernaryOp(TernaryOp::from(&node)?)),
             "FuncCall" => Ok(Expression::FuncCall(FuncCall::from(&node)?)),
-            "ArrayRef" => Ok(Expression::ArrayRef(ArrayRef::from(&node)?)),
-            "StructRef" => Ok(Expression::StructRef(StructRef::from(&node)?)),
+            "ID" | "ArrayRef" | "StructRef" => Ok(Expression::NameRef(NameRef::from(&node)?)),
             _ => {
                 panic!(format!(
                     "Invalid expression type:{}",
@@ -376,7 +392,7 @@ impl Expression {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Constant {
     pub _type: Type,
     pub val: String,
@@ -391,7 +407,7 @@ impl Constant {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BinaryOp {
     pub op_type: BinaryopType,
     pub left: Box<Expression>,
@@ -483,7 +499,7 @@ impl BinaryopType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UnaryOp {
     pub op_type: UnaryopType,
     pub expr: Box<Expression>,
@@ -515,7 +531,7 @@ pub enum UnaryopType {
     DEREF, // *
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ID {
     pub name: String,
 }
@@ -547,7 +563,7 @@ impl UnaryopType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Assignment {
     pub op: AssignmentOp,
     pub lvalue: Box<Expression>,
@@ -567,7 +583,7 @@ impl Assignment {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AssignmentOp {
     pub op: Option<BinaryopType>, // e.g for += assignment, this will be PLUS
 }
@@ -593,7 +609,7 @@ impl AssignmentOp {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct If {
     pub cond: Expression,
     pub iftrue: Box<Compound>,
@@ -613,7 +629,7 @@ impl If {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TernaryOp {
     pub cond: Box<Expression>,
     pub iftrue: Box<Expression>,
@@ -630,7 +646,7 @@ impl TernaryOp {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WhileLoop {
     pub cond: Expression,
     pub body: Box<Compound>,
@@ -647,7 +663,7 @@ impl WhileLoop {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DoWhileLoop {
     pub cond: Expression,
     pub body: Box<Compound>,
@@ -664,7 +680,7 @@ impl DoWhileLoop {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ForLoop{
     pub cond: Option<Expression>,
     pub init: Option<Box<Compound>>,
@@ -700,7 +716,7 @@ impl ForLoop {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FuncCall{
     pub name: String,
     pub args: Vec<Box<Expression>>,
@@ -726,9 +742,9 @@ impl FuncCall {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ArrayRef{
-    pub name: String,
+    pub name: Box<NameRef>,
     pub indices: Vec<Box<Expression>>,
 }
 
@@ -740,36 +756,26 @@ impl ArrayRef {
             indices.push(Box::new(Expression::from(&cur_node["subscript"])?));
             cur_node = &cur_node["name"];
         }
-        let name = cur_node["name"].as_str().unwrap().to_string();
+        let name = Box::new(NameRef::from(&node["name"])?);
         indices.reverse();
         Ok(ArrayRef{
-            name: name,
-            indices: indices,
+            name,
+            indices,
         })
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StructRef {
-    pub name: String,
-    pub field_names: Vec<String>,
+    pub name: Box<NameRef>,
+    pub field: String,
 }
 
 impl StructRef {
     fn from(node: &JsonNode) -> Result<StructRef, AstError> {
-        let mut fields = Vec::new();
-        let mut cur_node = node;
-        while cur_node["name"]["_nodetype"].as_str().unwrap() == "StructRef"{
-            fields.push(cur_node["field"]["name"].as_str().unwrap().to_string());
-            cur_node = &cur_node["name"];
-        }
-        fields.push(cur_node["field"]["name"].as_str().unwrap().to_string());
-
-        fields.reverse();
-
         Ok(StructRef{
-            name: cur_node["name"]["name"].as_str().unwrap().to_string(),
-            field_names: fields,
+            name: Box::new(NameRef::from(&node["name"])?),
+            field: node["field"]["name"].as_str().unwrap().to_string(),
         })
     }
 }
@@ -884,7 +890,7 @@ mod tests {
                 assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[2] {
                     Statement::If(if_stmt) => {
-                        if let Expression::ID(id) = &if_stmt.cond {
+                        if let Expression::NameRef(NameRef::ID(id)) = &if_stmt.cond {
                             assert_eq!(id.name, "a");
                         } else {
                             panic!();
@@ -1229,8 +1235,12 @@ mod tests {
                 match &func_def.body.items[1]{
                     Statement::Assignment(ass) => {
                         match &*ass.lvalue{
-                            Expression::ArrayRef(array_ref) => {
-                                assert_eq!(array_ref.name, "arr");
+                            Expression::NameRef(NameRef::ArrayRef(array_ref)) => {
+                                if let NameRef::ID(id) = &**array_ref.name{
+                                    assert_eq!(id.name, "arr");
+                                }else{
+                                    panic!();
+                                }
                                 assert_eq!(array_ref.indices.len(), 3);
                                 match &*array_ref.indices[0]{
                                     Expression::Constant(c) => {
@@ -1347,7 +1357,7 @@ mod tests {
                 match &func_def.body.items[3] {
                     Statement::Assignment(ass) => {
                         match &*ass.lvalue {
-                            Expression::StructRef(struct_ref) => {
+                            Expression::NameRef(NameRef::StructRef(struct_ref)) => {
                                 assert_eq!(struct_ref.name, "a");
                                 assert_eq!(struct_ref.field_names, vec!["z"]);
                             },
@@ -1429,8 +1439,12 @@ mod tests {
                 match &func_def.body.items[2] {
                     Statement::Assignment(ass) => {
                         match &*ass.lvalue {
-                            Expression::StructRef(struct_ref) => {
-                                assert_eq!(struct_ref.name, "b");
+                            Expression::NameRef(NameRef::StructRef(struct_ref)) => {
+                                if let NameRef::ID(id) = &*struct_ref.name{
+                                    assert_eq!(id.name, "b");
+                                } else{
+                                    panic!();
+                                }
                                 assert_eq!(struct_ref.field_names, vec!["a", "y"]);
                             },
                         _ => panic!(),

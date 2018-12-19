@@ -35,7 +35,7 @@ enum LocalOrArg{
 #[derive(Debug)]
 enum VariableType {
     Regular {_type: Type}, // including structs
-    Array {_type: Type, dimentions: Vec<u32>},
+    Array {_type: Box<VariableType>, dimentions: Vec<u32>},
 }
 
 impl VariableType{
@@ -45,7 +45,7 @@ impl VariableType{
                 _type: var_decl._type.clone(),
             },
             Decl::ArrayDecl(arr_decl) => VariableType::Array{
-                _type: arr_decl._type.clone(),
+                _type: Box::new(VariableType::Regular{_type: arr_decl._type.clone()}),
                 dimentions: arr_decl.dimentions.clone(),
             },
         }
@@ -303,11 +303,6 @@ impl Compiler {
                     }
                 }
             }
-            Expression::ID(id) => {
-                let var_name = &id.name;
-                self.codegen_load_addr_of_var(&var_name, &scope, code);
-                code.push("LOAD R1 R1".to_string());
-            }
             Expression::Assignment(ass) => {
                 self.gen_assignment_code(ass, &scope, code);
             }
@@ -346,14 +341,61 @@ impl Compiler {
                     code.push("POP ZR".to_string());
                 }
             },
-            Expression::ArrayRef(array_ref) => {
-                self.codegen_load_addr_of_array_indexing(array_ref, scope, code);
-                code.push("LOAD R1 R1".to_string());
-            },
-            Expression::StructRef(struct_ref) => {
-                self.codegen_load_addr_of_struct_ref(struct_ref, scope, code);
+            Expression::NameRef(name) => {
+                self.codegen_name(name, scope, code);
                 code.push("LOAD R1 R1".to_string());
             }
+        }
+    }
+
+    /// generates code for name reference
+    /// returns type of the references name
+    fn codegen_name(&mut self, node: &NameRef, scope: &String, code: &mut Vec<String>) {
+        match node {
+            NameRef::ID(id) => {
+                let var_name = &id.name;
+                self.codegen_load_addr_of_var(&var_name, &scope, code);
+            }
+            NameRef::ArrayRef(array_ref) => {
+                self.codegen_load_addr_of_array_indexing(array_ref, scope, code);
+            },
+            NameRef::StructRef(struct_ref) => {
+                self.codegen_load_addr_of_struct_ref(struct_ref, scope, code);
+            },
+        }
+    }
+
+    fn get_type_of_name(&self, node: &NameRef, scope: &String) -> &VariableType {
+        match node {
+            NameRef::ID(id) => {
+                let var_name = &id.name;
+                println!("get type of name found var_name: {}", var_name);
+                let var_data = self.find_variable(var_name, scope).unwrap();
+                println!("var data: {:?}", var_data);
+                &var_data.var_type
+            }
+            NameRef::ArrayRef(array_ref) => {
+                let item_type = self.get_type_of_name(&array_ref.name, scope);
+                item_type
+                // if let VariableType::Array{_type: t, ..} = item_type {
+                //     &**t // deref -> unbox -> then return ref
+                // }else{
+                //     panic!()
+                // }
+            },
+            NameRef::StructRef(struct_ref) => {
+                let struct_type = self.get_type_of_name(&struct_ref.name, scope);
+                if let VariableType::Regular{_type: t} = & struct_type {
+                    if let Type::Struct(struct_name) = t {
+                        let struct_name = struct_name.clone(); // to please the borrow checker
+                        let struct_data = self.struct_to_data.get(&struct_name).expect("struct doesn't exist");
+                        let field_var = struct_data.items.get(&struct_ref.field).expect(&format!("field {} not found in struct {}", &struct_ref.field, &struct_data.name));
+                        &field_var.var_type
+                    } else {panic!()}
+                } else{
+                    panic!();
+                }
+            },
         }
     }
 
@@ -366,49 +408,48 @@ impl Compiler {
     }
 
     fn codegen_load_addr_of_struct_ref(&mut self, struct_ref: &StructRef, scope: &String, code: &mut Vec<String>){
-        let var_name = &struct_ref.name;
-        self.codegen_load_addr_of_var(var_name, scope, code);
-        let var_data = self.find_variable(var_name, scope).unwrap();
-        if let VariableType::Regular{_type: struct_type} = &var_data.var_type{
-            if let Type::Struct(struct_type) = struct_type{
-                let struct_data = self.struct_to_data.get(struct_type).expect("struct doesn't exist");
-                code.push("MOV R2 R1".to_string()); // R2 holds current item addr
-                let mut cur_struct = struct_data;
-                for (field_i, field) in struct_ref.field_names.iter().enumerate(){
-                    let field_vardata = cur_struct.items.get(field).expect(&format!("field {} not found in struct {}", field, &cur_struct.name));
-
-                    code.push(format!("ADD R2 R2 {}", field_vardata.offset));
-                    if field_i < struct_ref.field_names.len() - 1{
-                        if let VariableType::Regular{_type: t} = &field_vardata.var_type{
-                            cur_struct = self.get_struct_data_from_type(t).unwrap();
-                        }else{
-                            panic!();
-                        }
-                    }
-                }
-                code.push("MOV R1 R2".to_string());
+        self.codegen_name(&struct_ref.name, scope, code);
+        let struct_type = self.get_type_of_name(&struct_ref.name, scope);
+        if let VariableType::Regular{_type: t} = & struct_type {
+            if let Type::Struct(struct_name) = t {
+                let struct_data = self.struct_to_data.get(struct_name).expect("struct doesn't exist");
+                let field_var = struct_data.items.get(&struct_ref.field).expect(&format!("field {} not found in struct {}", &struct_ref.field, &struct_data.name));
+                code.push(format!("ADD R1 R1 {}", field_var.offset));
             } else {panic!()}
         } else{
             panic!();
         }
-
     }
+
+    fn get_array_item_size(&self, arr_type: &VariableType) -> u32{
+        if let VariableType::Regular {_type} = arr_type {
+            self.get_type_size(_type)
+        } else{
+            panic!("arrays cannot hold arrays as items")
+        }
+    }
+
+    /// generates code for array indexing
     fn codegen_load_addr_of_array_indexing(&mut self, array_ref: &ArrayRef, scope: &String, code: &mut Vec<String>){
-        self.codegen_load_addr_of_var(&array_ref.name, scope, code);
-        let arr_var = self.find_variable(&array_ref.name, scope).expect("array not found");
-        match &arr_var.var_type{
+        self.codegen_name(&array_ref.name, scope, code);
+        println!("getting type of name {:?}", &array_ref.name);
+        let array_type = self.get_type_of_name(&array_ref.name, scope);
+        println!("type is: {:?}", &array_type);
+        // let arr_var = self.find_variable(&*array_ref.name, scope).expect("array not found");
+        match &array_type {
             VariableType::Array{_type, dimentions} => {
+                let dimentions = dimentions.clone();
+                let item_type = &**_type;
+                let item_type = item_type.clone();
                 // let mut offset = 0;                        
                 code.push("MOV R2 R1".to_string()); // R2 holds current item addr
                 let mut cur_dimentions_product = 1;
-                let item_size = self.get_type_size(_type);
+                let item_size = self.get_array_item_size(item_type);
 
                 // hiding from the borrow checker
                 let indices = array_ref.indices.clone();
-                let dimentions = dimentions.clone();
 
                 for (idx_expr, dimsize) in indices.iter().zip(dimentions){
-                    // offset += idx * cur_dimentions_product * item_size;
                     code.push("PUSH R2".to_string()); // save R2
                     self.right_gen(idx_expr, scope, code);
                     code.push("POP R2".to_string());
@@ -418,10 +459,8 @@ impl Compiler {
                     cur_dimentions_product *= dimsize;
                 }
                 code.push("MOV R1 R2".to_string());
-
             },
-            _ => panic!(format!("{} is no an array type", &array_ref.name)),
-
+            _ => panic!(format!("not an array type")),
         }
     }
 
@@ -444,7 +483,7 @@ impl Compiler {
     }
 
 
-    fn codegen_load_addr_of_var(&mut self, var_name: &String, scope: &String, code: &mut Vec<String>) {
+    fn codegen_load_addr_of_var(&mut self, var_name: &String, scope: &String, code: &mut Vec<String>) -> &VariableData{
         let var_data = self.find_variable(var_name, scope).expect(&format!("Variable {} not found", var_name));
         let scope_data = self.get_scope_data(scope).expect("Scope doesn't exist");
         let func_data = self.get_func_data(& scope_data.parent_func).unwrap();
@@ -457,15 +496,12 @@ impl Compiler {
             }
         };
         code.push(format!("ADD R1 BP {}", var_offset_from_bp));
+        var_data
     }
 
     // after executing the generated code, evaluate daddress is stored in R1
     fn left_gen(&mut self, node: &Expression, scope: &String, code: &mut Vec<String>) {
         match node {
-            Expression::ID(id) => {
-                let var_name = &id.name;
-                self.codegen_load_addr_of_var(&var_name, &scope, code);
-            }
             Expression::UnaryOp(uop) => {
                 match uop.op_type{
                     UnaryopType::DEREF => {
@@ -475,11 +511,8 @@ impl Compiler {
                     _ => panic!("only dereference unary op allowed as lvalue")
                 }
             },
-            Expression::ArrayRef(array_ref) => {
-                self.codegen_load_addr_of_array_indexing(array_ref, scope, code);
-            },
-            Expression::StructRef(struct_ref) => {
-                self.codegen_load_addr_of_struct_ref(struct_ref, scope, code);
+            Expression::NameRef(name) => {
+                self.codegen_name(name, scope, code);
             }
             _ => panic!("not yet supported as an lvalue"),
         }
@@ -702,7 +735,7 @@ impl Compiler {
         let arr_var = self.find_variable(arr_name, scope).expect("array not found");
         match &arr_var.var_type{
             VariableType::Array{_type, dimentions} => {
-                let item_size = self.get_type_size(_type);
+                let item_size = if let VariableType::Regular {_type} = &**_type { self.get_type_size(_type) } else{panic!("arrays cannot hold arrays as items")};
                 self.codegen_load_addr_of_var(arr_name, scope, code);
                 code.push("MOV R2 R1".to_string());
                 for expr in arr_init.iter(){
