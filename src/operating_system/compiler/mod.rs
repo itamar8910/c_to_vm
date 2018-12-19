@@ -384,7 +384,10 @@ impl Compiler {
                 // }
             },
             NameRef::StructRef(struct_ref) => {
-                let struct_type = self.get_type_of_name(&struct_ref.name, scope);
+                let mut struct_type = self.get_type_of_name(&struct_ref.name, scope);
+                if let VariableType::Array {_type: t, ..} = struct_type {
+                    struct_type = t;
+                }
                 if let VariableType::Regular{_type: t} = & struct_type {
                     if let Type::Struct(struct_name) = t {
                         let struct_name = struct_name.clone(); // to please the borrow checker
@@ -408,8 +411,12 @@ impl Compiler {
     }
 
     fn codegen_load_addr_of_struct_ref(&mut self, struct_ref: &StructRef, scope: &String, code: &mut Vec<String>){
+        println!("codegen load addr of struct ref: {:?}", struct_ref);
         self.codegen_name(&struct_ref.name, scope, code);
-        let struct_type = self.get_type_of_name(&struct_ref.name, scope);
+        let mut struct_type = self.get_type_of_name(&struct_ref.name, scope);
+        if let VariableType::Array {_type: t, ..} = struct_type {
+            struct_type = t;
+        }
         if let VariableType::Regular{_type: t} = & struct_type {
             if let Type::Struct(struct_name) = t {
                 let struct_data = self.struct_to_data.get(struct_name).expect("struct doesn't exist");

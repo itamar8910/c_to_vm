@@ -6,5 +6,6 @@ struct A{
 int main(){
     struct A a[2];
     a[1].y[2] = 5;
-    return a[1].y[2];
+    a[0].y[1] = 3;
+    return a[1].y[2] - a[0].y[1];
 }
