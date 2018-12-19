@@ -343,7 +343,17 @@ impl Compiler {
             },
             Expression::NameRef(name) => {
                 self.codegen_name(name, scope, code);
-                code.push("LOAD R1 R1".to_string());
+                let mut deref = true;
+
+                // we do not want to deref rvalue in expressions like "ptr = arr"
+                if let NameRef::ID(_) = name{
+                    if let VariableType::Array{..} = self.get_type_of_name(name, scope){
+                        deref = false;
+                    }
+                }
+                if deref{
+                    code.push("LOAD R1 R1".to_string());
+                }
             }
         }
     }
