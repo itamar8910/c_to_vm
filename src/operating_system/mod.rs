@@ -29,7 +29,7 @@ impl OS {
     pub fn new() -> OS {
         let mut std_programs = Vec::new();
         let num_std_programs = 1;
-        std_programs.push(Compiler::compile("libc/libc.c", num_std_programs));
+        std_programs.push(Compiler::compile("libc/libc.c", 0));
         assert_eq!(std_programs.len() as u32, num_std_programs);
         let mut instance = OS { cpu: Cpu::new() , out_chars: Vec::new(), inp_chars: Vec::new(),
             std_programs, compiled_programs_count: num_std_programs};
@@ -211,7 +211,10 @@ impl OS {
     }
 
     pub fn assemble_and_debug(&mut self, programs: Vec<&str>) -> i32 {
-        let exec = assemble_and_link(programs);
+        let mut programs_with_std = programs;
+        let mut std_programs_clone = self.std_programs.iter().map(|s| s.as_str()).collect();
+        programs_with_std.append(&mut std_programs_clone);
+        let exec = assemble_and_link(programs_with_std);
         self.debug_program(&exec)
     }
 

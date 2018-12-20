@@ -159,7 +159,7 @@ impl Compiler {
                     },
                     Type::Char => {
                         // pasre char value & return ascii value
-                        let char_re = Regex::new(r"'(\w)'").unwrap();
+                        let char_re = Regex::new(r"'(.)'").unwrap();
                         let c = &char_re.captures(&c.val).unwrap()[1];
                         let c = &c.chars().collect::<Vec<char>>()[0];
                         let const_val = (*c as u8).to_string();
@@ -167,7 +167,8 @@ impl Compiler {
                     },
                     Type::_String => {
                         // regex to remove string's quotes
-                        let str_re = Regex::new(r#""(\w+)""#).unwrap();
+                        println!("unwrapping string from: {}", &c.val);
+                        let str_re = Regex::new(r#""(.+)""#).unwrap();
                         let s = &str_re.captures(&c.val).unwrap()[1];
                         let string_label = self.maybe_add_string_data(&s.to_string(), code);
                         code.push(format!("LEA R1 {}", string_label));

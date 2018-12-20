@@ -17,7 +17,7 @@ fn get_label_from_line(line: &str) -> Option<String> {
 }
 
 fn is_instruction(line: &str) -> bool {
-    !is_label(line) && line.trim() != ""
+    !is_label(line) && !is_data(line) && line.trim() != ""
 }
 
 fn maybe_parse_instruction(
@@ -45,10 +45,9 @@ fn maybe_parse_instruction(
                 return Some(Instruction::from_str(&format!("LEA {} {}", dst, label_addr)).unwrap());
             }
         }
-
         if let Ok(instr) = Instruction::from_str(line) {
             return Some(instr);
-        }
+        } 
     }
     None
 }
@@ -85,7 +84,8 @@ pub fn extract_data(program: &str, cur_data_size: u32) -> (Vec<i32>, HashMap<Str
             match parts[0]{
                 ".stringz" => { // zero terminated string
                     let string_label = &parts[1];
-                    let string = &parts[2];
+                    let string_parts = &parts[2..];
+                    let string = &string_parts.join(" ");
                     data_table.insert(string_label.to_string(), cur_data_size + data.len() as u32);
                     for val in string.chars() {
                         data.push(val as i32);
