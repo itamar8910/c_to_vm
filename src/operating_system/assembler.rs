@@ -92,6 +92,16 @@ pub fn extract_data(program: &str, cur_data_size: u32) -> (Vec<i32>, HashMap<Str
                     }
                     data.push(0);
                 },
+                ".block" => { // allocate a block of data
+                    let block_label = &parts[1];
+                    let block_size = &parts[2];
+                    let block_size : u32 = block_size.parse().unwrap();
+                    data_table.insert(block_label.to_string(), cur_data_size + data.len() as u32);
+                    for _ in 0..block_size{
+                        data.push(0);
+                    }
+
+                }
                 _ => panic!("invalid data instruction")
             }
         } 

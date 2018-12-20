@@ -26,9 +26,10 @@ use std::collections::HashSet;
 use self::serde_json::Value as Node;
 
 #[derive(Debug)]
-enum LocalOrArg{
+enum VarStorageType{
     Local,
     Arg,
+    Global,
 }
 
 
@@ -55,7 +56,7 @@ impl VariableType{
 #[derive(Debug)]
 struct VariableData {
     name: String,
-    local_or_arg: LocalOrArg,
+    local_or_arg: VarStorageType,
     var_type: VariableType,
     offset: u32,
     size: u32,
@@ -125,6 +126,10 @@ impl Compiler {
 
     fn get_tmp_label(&self) -> String{
         format!("{}_{}", self.program_index, self.cur_tmp_label)
+    }
+
+    fn get_global_label(&self) -> String{
+        format!("GLOBAL_{}", self.program_index)
     }
 
     fn inc_tmp_label(&mut self){
@@ -506,14 +511,21 @@ impl Compiler {
         let scope_data = self.get_scope_data(scope).expect("Scope doesn't exist");
         let func_data = self.get_func_data(& scope_data.parent_func).unwrap();
         let func_body_data = &func_data.body_data.as_ref().expect("Function must be defined");
-        let var_offset_from_bp = match var_data.local_or_arg{
-            LocalOrArg::Local => -((1 + func_body_data.regs_used.len() as u32 + var_data.offset) as i32),
-            LocalOrArg::Arg => {
+        match var_data.local_or_arg{
+            VarStorageType::Local => {
+                let bp_offset = -((1 + func_body_data.regs_used.len() as u32 + var_data.offset) as i32);
+                code.push(format!("ADD R1 BP {}", bp_offset));
+                },
+            VarStorageType::Arg => {
                 let func_retval_size = self.get_type_size(&func_data.decl_data.return_type);
-                (2 + func_retval_size + var_data.offset) as i32
+                let bp_offset = (2 + func_retval_size + var_data.offset) as i32;
+                code.push(format!("ADD R1 BP {}", bp_offset));
+            },
+            VarStorageType::Global => {
+                code.push(format!("LEA R1 {}", self.get_global_label()));
+                code.push(format!("ADD R1 R1 {}", &var_data.offset));
             }
         };
-        code.push(format!("ADD R1 BP {}", var_offset_from_bp));
         var_data
     }
 
@@ -543,16 +555,32 @@ impl Compiler {
     fn code_gen(&mut self, node: AST::AstNode, scope: &String, code: &mut Vec<String>) {
         match node {
             AstNode::RootAstNode(root_node) => {
+                let mut glob_vars = HashMap::new();
+                let mut next_var_offset : u32 = 0;
+                // register global variables
+                for ext in root_node.externals.iter(){
+                    match ext{
+                        External::VarDecl(decl) => {
+                            let var_data = self.variable_data_from_decl(decl, VarStorageType::Global, &next_var_offset.clone());
+                            next_var_offset += &var_data.size;
+                            glob_vars.insert(var_data.name.clone(), var_data);
+                        },
+                        _ => {},
+                    }
+                }
+                let glob_var_names : HashSet<String> = glob_vars.keys().into_iter().map(|s| s.clone()).collect();
                 // insert global scope
                 self.scope_to_data.insert("_GLOBAL".to_string(), ScopeData {
                     name: "_GLOBAL".to_string(),
                     parent_scope: "_GLOBAL".to_string(),
                     parent_func:  "_GLOBAL".to_string(),
-                    variables: HashMap::new(),
-                    declared_variables: HashSet::new(),
+                    variables: glob_vars,
+                    declared_variables: glob_var_names,
                     break_label: None,
                     continue_label: None
                 });
+                let global_label = self.get_global_label();
+                code.push(format!(".block {} {}", global_label, next_var_offset));
                 code.push("JUMP main".to_string());
                 for ext in root_node.externals.iter(){
                     match ext{
@@ -564,8 +592,9 @@ impl Compiler {
                         },
                         External::StructDecl(struct_decl) => {
                             self.register_struct(struct_decl);
-                        }
-                    }
+                        },
+                        External::VarDecl(_) => {},
+                    };
                 }
             },
             AstNode::FuncDecl(func_decl) => {
@@ -851,7 +880,7 @@ impl Compiler {
         }
     }
 
-    fn variable_data_from_decl(&self, decl: &Decl, local_or_arg: LocalOrArg, offset: &u32) -> VariableData{
+    fn variable_data_from_decl(&self, decl: &Decl, local_or_arg: VarStorageType, offset: &u32) -> VariableData{
         match decl{
             Decl::VarDecl(var_decl) => {
                 let size = self.get_decl_size(decl);
@@ -882,7 +911,7 @@ impl Compiler {
         for statement in statements.iter() {
             match statement{
                 Statement::Decl(decl) => {
-                    let var_data = self.variable_data_from_decl(&decl, LocalOrArg::Local, &next_var_offset.clone());
+                    let var_data = self.variable_data_from_decl(&decl, VarStorageType::Local, &next_var_offset.clone());
                     *next_var_offset += &var_data.size;
                     variables.insert(var_data.name.clone(), var_data);
 
@@ -914,7 +943,7 @@ impl Compiler {
                         for stmt in init.items.iter(){
                             match stmt{
                                 Statement::Decl(decl) => {
-                                    let var_data = self.variable_data_from_decl(&decl, LocalOrArg::Local, &next_var_offset.clone());
+                                    let var_data = self.variable_data_from_decl(&decl, VarStorageType::Local, &next_var_offset.clone());
                                     *next_var_offset += var_data.size;
                                     for_init_vars.insert(var_data.name.clone(), var_data);
                                 },
@@ -970,7 +999,7 @@ impl Compiler {
         let mut cur_arg_offset : u32 = 0;
         let mut args_variables = HashMap::new();
         for arg in func_decl.args.iter(){
-            let var_data = self.variable_data_from_decl(arg, LocalOrArg::Arg, &cur_arg_offset);
+            let var_data = self.variable_data_from_decl(arg, VarStorageType::Arg, &cur_arg_offset);
             cur_arg_offset += &var_data.size;
             args_variables.insert(var_data.name.clone(), var_data);
         }
@@ -997,7 +1026,7 @@ impl Compiler {
             let size = self.get_decl_size(decl);
             let var_data = VariableData {
                 name: name.clone(),
-                local_or_arg: LocalOrArg::Local,
+                local_or_arg: VarStorageType::Local,
                 var_type: VariableType::from(decl),
                 offset: cur_offset.clone(),
                 size: size,

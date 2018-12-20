@@ -46,6 +46,7 @@ pub enum External {
     FuncDef(FuncDef),
     FuncDecl(FuncDecl),
     StructDecl(StructDecl),
+    VarDecl(Decl),
 }
 
 impl External {
@@ -55,6 +56,7 @@ impl External {
             "Decl" => match node["type"]["_nodetype"].as_str().unwrap(){
                 "FuncDecl" => Ok(External::FuncDecl(FuncDecl::from(&node)?)),
                 "Struct" => Ok(External::StructDecl(StructDecl::from(&node)?)),
+                "TypeDecl" => Ok(External::VarDecl(Decl::from(&node)?)),
                 _ => panic!(),
                 }
             _ => {
