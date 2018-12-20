@@ -4,3 +4,9 @@ void putc(char c){
     *COD = c;
     *COS = 1;
 }
+
+void puts(char* str){
+    while(*str != 0){
+        putc(*(str++));
+    }
+}
