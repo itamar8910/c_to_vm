@@ -17,15 +17,14 @@ def get_test_categories():
     return {
         category: {
             'inputs': sorted(listdir(path.join(TESTS_DIR, category, 'inputs'))),
-            'targets': sorted(listdir(path.join(TESTS_DIR, category, 'targets'))),
         } for category in listdir(TESTS_DIR) if not category.startswith('_')
     }
 
 
 test_cases = get_test_categories()
 
-categories, inputs, targets = zip(*[(category, inp, tar) for category, data in test_cases.items() for inp, tar in zip(data['inputs'], data['targets']) if not inp.startswith('_')])
-assert all([i.replace('.c', '') == t.replace('.txt', '') for i, t in zip(inputs, targets)]), 'input/target mismatch!'
+categories, cases = zip(*[(category, inp[:inp.index('.c')]) for category, data in test_cases.items() for inp in data['inputs'] if not inp.startswith('_')])
+# assert all([i.replace('.c', '') == t.replace('.res', '') for i, t in zip(inputs, targets)]), 'input/target mismatch!'
 
 
 compiler_tests_code = """
@@ -48,32 +47,50 @@ use std::io::Read;
 struct CompilerTestCase{
     category: String,
     input_f: String,
-    target_f : String,
+    target_res_f : Option<String>,
+    target_out_f : Option<String>,
+}
+
+fn read_file_content(file_path: &str) -> String{
+    let mut f = File::open(file_path).unwrap();
+    let mut content = String::new();
+    f.read_to_string(&mut content).unwrap();
+    content
 }
 
 fn test_single(test_case: &CompilerTestCase){
-    println!("{}:{},{}", test_case.category, Path::new(&test_case.input_f).file_name().unwrap().to_str().unwrap(), Path::new(&test_case.target_f).file_name().unwrap().to_str().unwrap());
     let mut os = OS::new();
     let program = os.compile(&test_case.input_f);
     let res = os.assemble_and_run(&program);
-    let mut tar_f = File::open(&test_case.target_f).unwrap();
-    let mut tar_content = String::new();
-    tar_f.read_to_string(&mut tar_content).unwrap();
-    println!("{}", program);
-    println!("{},{}", res.to_string(), tar_content.to_string());
-    assert_eq!(res.to_string(), tar_content.trim());
+    let out = &os.out_chars.iter().map(|c| c.to_string()).collect::<Vec<String>>().join("");
+    if let Some(res_f) = &test_case.target_res_f {
+        let tar_res = read_file_content(res_f);
+        println!("res: {},{}", res.to_string(), tar_res);
+        assert_eq!(res.to_string(), tar_res.trim());
+    }
+    if let Some(out_f) = &test_case.target_out_f {
+        let tar_out = read_file_content(out_f);
+        println!("out: {},{}", out.to_string(), tar_out);
+        assert_eq!(out.to_string(), tar_out.trim());
+    }
 }
 """
 
-for cat, inp, tar in zip(categories, inputs, targets):
+for cat, case in zip(categories, cases):
+    target_res_fpath = path.join(TESTS_DIR, cat, 'targets', case + '.res')
+    target_out_fpath = path.join(TESTS_DIR, cat, 'targets', case + '.out')
+    assert any((path.isfile(target_res_fpath), path.isfile(target_out_fpath))), f"{cat}/{case} doesn't have any targets files"
+    target_res_f = f"""Some("{target_res_fpath}".to_string()) """ if path.isfile(target_res_fpath) else "None"
+    target_out_f = f"""Some("{target_out_fpath}".to_string()) """ if path.isfile(target_out_fpath) else "None"
     compiler_tests_code += \
     f"""
 #[test]
-fn test_{cat}_{path.splitext(path.basename(inp))[0]}(){{
+fn test_{cat}_{case}(){{
     let case = CompilerTestCase{{
         category: "{cat}".to_string(),
-        input_f: "{path.join(TESTS_DIR, cat, 'inputs', inp)}".to_string(),
-        target_f: "{path.join(TESTS_DIR, cat, 'targets', tar)}".to_string(),
+        input_f: "{path.join(TESTS_DIR, cat, 'inputs', case + ".c")}".to_string(),
+        target_res_f: {target_res_f},
+        target_out_f: {target_out_f},
     }};
     test_single(&case);
 }}
@@ -82,6 +99,5 @@ fn test_{cat}_{path.splitext(path.basename(inp))[0]}(){{
 
 with open(COMPILER_TESTS_FILE, 'w') as f:
     f.write(compiler_tests_code)
-# print(compiler_tests_code)
 
 subprocess.run("cargo test", shell=True)
