@@ -115,7 +115,13 @@ impl Compound {
     fn from(node: &JsonNode) -> Result<Compound, AstError> {
         let mut statements = Vec::new();
         let node_type = node["_nodetype"].as_str().unwrap();
-        if node_type != "EmptyStatement"{
+        if node_type == "ExprList" {
+            for expr_node in node["exprs"].as_array().unwrap().iter() {
+                statements.push(Statement::Expression(Expression::from(expr_node)?));
+            }
+
+        }
+        else if node_type != "EmptyStatement"{
             if node_type == "DeclList"{
                 // we treat DeclList as a compound, because a declaration is also a statement
                 for decl_node in node["decls"].as_array().unwrap().iter() {
