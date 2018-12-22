@@ -23,3 +23,41 @@ void* malloc(int size) {
     next_heap_alloc_rel += size;
     return ret;
 }
+
+void revstr(char* str, int start, int end){
+    end -= 1;
+    for(; start < end; start++, end--){
+        char* c1 = str + start;
+        char* c2 = str + end;
+        char tmp = *c1;
+        *c1 = *c2;
+        *c2 = tmp;
+    }
+}
+
+// integer to string
+char* itos(int num) {
+    int sign = num >= 0;
+    num = num >= 0 ? num : -num;
+    int orig_num = num;
+
+    int str_len = 0;
+    for(; num > 0; num /= 10, str_len++) {
+    }
+
+    str_len = orig_num != 0 ? str_len : 1;
+    char* str = malloc(str_len * sizeof(char) + 1 + !sign);
+    char* cur_char = str;
+    num = orig_num;
+    for(int i = 0; i < str_len; i++, cur_char++, num /= 10) {
+        *cur_char = '0' + (num % 10);
+    }
+    if (!sign) {
+        *cur_char = '-';
+        cur_char++;
+    }
+    *cur_char = 0; // termiante string
+    revstr(str, 0, str_len + !sign);
+    // TODO: reverse digits
+    return str;
+}
