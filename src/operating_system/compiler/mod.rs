@@ -164,11 +164,24 @@ impl Compiler {
                     },
                     Type::Char => {
                         // pasre char value & return ascii value
-                        let char_re = Regex::new(r"'(.)'").unwrap();
+                        let char_re = Regex::new(r"'(.+)'").unwrap();
                         let c = &char_re.captures(&c.val).unwrap()[1];
-                        let c = &c.chars().collect::<Vec<char>>()[0];
-                        let const_val = (*c as u8).to_string();
-                        code.push(format!("MOV R1 {}", const_val));
+                        let chars = &c.chars().collect::<Vec<char>>(); 
+                        let val = match chars.len() {
+                            1 =>  {
+                                (chars[0] as u8)
+                            },
+                            2 => { // special chars
+                                assert_eq!(chars[0], '\\');
+                                match &chars[1] {
+                                    'n' => 10,
+                                    't' => 9,
+                                    _ => panic!("invalid special char"),
+                                }
+                            },
+                            _ => panic!(),
+                        };
+                        code.push(format!("MOV R1 {}", val));
                     },
                     Type::_String => {
                         // regex to remove string's quotes
@@ -334,7 +347,7 @@ impl Compiler {
                 code.push(format!("{}:", ternary_end_label));
             },
             Expression::FuncCall(func_call) => {
-                let func_data = self.get_func_data(&func_call.name).unwrap();
+                let func_data = self.get_func_data(&func_call.name).expect(&format!("FuncCall to unknown function: {}", &func_call.name));
                 let rettype = func_data.decl_data.return_type.clone();
                 // push args
                 for arg in func_call.args.iter().rev(){
