@@ -306,6 +306,14 @@ impl Compiler {
                     UnaryopType::DEREF => {
                         self.right_gen(&op.expr, scope, code);
                         code.push("LOAD R1 R1".to_string());
+                    },
+                    UnaryopType::SIZEOF => {
+                        if let Expression::TypeName(t) = &*op.expr {
+                            let size = self.get_type_size(&t._type);
+                            code.push(format!("MOV R1 {}", size));
+                        } else{
+                            panic!("expression inside sizeof() must be a type");
+                        }
                     }
                 }
             }
@@ -360,6 +368,9 @@ impl Compiler {
                 if deref{
                     code.push("LOAD R1 R1".to_string());
                 }
+            },
+            Expression::TypeName(_) => {
+                panic!("TypeName must be inside a sizeof() call");
             }
         }
     }

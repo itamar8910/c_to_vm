@@ -371,6 +371,7 @@ pub enum Expression {
     TernaryOp(TernaryOp),
     FuncCall(FuncCall),
     NameRef(NameRef),
+    TypeName(TypeName), // used in sizeof()
 }
 
 impl Expression {
@@ -383,6 +384,7 @@ impl Expression {
             "TernaryOp" => Ok(Expression::TernaryOp(TernaryOp::from(&node)?)),
             "FuncCall" => Ok(Expression::FuncCall(FuncCall::from(&node)?)),
             "ID" | "ArrayRef" | "StructRef" => Ok(Expression::NameRef(NameRef::from(&node)?)),
+            "Typename" => Ok(Expression::TypeName(TypeName::from(&node)?)),
             _ => {
                 panic!(format!(
                     "Invalid expression type:{}",
@@ -531,6 +533,7 @@ pub enum UnaryopType {
     MMX, // --x
     REF, // &
     DEREF, // *
+    SIZEOF,
 }
 
 #[derive(Clone, Debug)]
@@ -558,6 +561,7 @@ impl UnaryopType {
             "--" => Ok(UnaryopType::MMX),
             "&" => Ok(UnaryopType::REF),
             "*" => Ok(UnaryopType::DEREF),
+            "sizeof" => Ok(UnaryopType::SIZEOF),
             _ => {
                 panic!("Unkown Unary type:{}", node.as_str().unwrap());
             }
@@ -778,6 +782,18 @@ impl StructRef {
         Ok(StructRef{
             name: Box::new(NameRef::from(&node["name"])?),
             field: node["field"]["name"].as_str().unwrap().to_string(),
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeName {
+    pub _type: Type,
+}
+impl TypeName {
+    fn from(node: &JsonNode) -> Result<TypeName, AstError> {
+        Ok(TypeName {
+            _type: Type::from(&node["type"])
         })
     }
 }
