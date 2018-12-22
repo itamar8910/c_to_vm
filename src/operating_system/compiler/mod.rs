@@ -402,21 +402,22 @@ impl Compiler {
                 &var_data.var_type
             }
             NameRef::ArrayRef(array_ref) => {
-                let item_type = self.get_type_of_name(&array_ref.name, scope);
-                item_type
-                // if let VariableType::Array{_type: t, ..} = item_type {
-                //     &**t // deref -> unbox -> then return ref
-                // }else{
-                //     panic!()
-                // }
+                self.get_type_of_name(&array_ref.name, scope)
             },
             NameRef::StructRef(struct_ref) => {
-                let mut struct_type = self.get_type_of_name(&struct_ref.name, scope);
-                if let VariableType::Array {_type: t, ..} = struct_type {
-                    struct_type = t;
+                let mut struct_vartype = self.get_type_of_name(&struct_ref.name, scope);
+                if let VariableType::Array {_type: t, ..} = struct_vartype {
+                    struct_vartype = t;
                 }
-                if let VariableType::Regular{_type: t} = & struct_type {
-                    if let Type::Struct(struct_name) = t {
+                if let VariableType::Regular{_type: t} = & struct_vartype {
+                    let mut struct_type = t;
+                    // if struftRef is "->", get struct type that's pointed to
+                    if let Type::Ptr(pointed_t) = & t{
+                        if let StructRefType::ARROW = struct_ref._type {
+                            struct_type = &*pointed_t;
+                        }
+                    }
+                    if let Type::Struct(struct_name) = struct_type {
                         let struct_name = struct_name.clone(); // to please the borrow checker
                         let struct_data = self.struct_to_data.get(&struct_name).expect("struct doesn't exist");
                         let field_var = struct_data.items.get(&struct_ref.field).expect(&format!("field {} not found in struct {}", &struct_ref.field, &struct_data.name));
@@ -440,12 +441,18 @@ impl Compiler {
     fn codegen_load_addr_of_struct_ref(&mut self, struct_ref: &StructRef, scope: &String, code: &mut Vec<String>){
         println!("codegen load addr of struct ref: {:?}", struct_ref);
         self.codegen_name(&struct_ref.name, scope, code);
-        let mut struct_type = self.get_type_of_name(&struct_ref.name, scope);
-        if let VariableType::Array {_type: t, ..} = struct_type {
-            struct_type = t;
+        let mut struct_vartype = self.get_type_of_name(&struct_ref.name, scope);
+        if let VariableType::Array {_type: t, ..} = struct_vartype {
+            struct_vartype = t;
         }
-        if let VariableType::Regular{_type: t} = & struct_type {
-            if let Type::Struct(struct_name) = t {
+        if let VariableType::Regular{_type: t} = & struct_vartype {
+            let mut struct_type = t;
+            if let StructRefType::ARROW = struct_ref._type {
+                if let Type::Ptr(pointed_t) = t{
+                    struct_type = &*pointed_t;
+                }
+            }
+            if let Type::Struct(struct_name) = struct_type {
                 let struct_data = self.struct_to_data.get(struct_name).expect("struct doesn't exist");
                 let field_var = struct_data.items.get(&struct_ref.field).expect(&format!("field {} not found in struct {}", &struct_ref.field, &struct_data.name));
                 code.push(format!("ADD R1 R1 {}", field_var.offset));

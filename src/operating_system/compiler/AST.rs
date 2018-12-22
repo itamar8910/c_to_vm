@@ -772,9 +772,26 @@ impl ArrayRef {
 }
 
 #[derive(Clone, Debug)]
+pub enum StructRefType{
+    DOT,
+    ARROW,
+}
+
+impl StructRefType {
+    fn from(node: &JsonNode) -> Result<StructRefType, AstError> {
+        match node.as_str().unwrap() {
+            "." => Ok(StructRefType::DOT),
+            "->" => Ok(StructRefType::ARROW),
+            _ => panic!(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct StructRef {
     pub name: Box<NameRef>,
     pub field: String,
+    pub _type: StructRefType,
 }
 
 impl StructRef {
@@ -782,6 +799,7 @@ impl StructRef {
         Ok(StructRef{
             name: Box::new(NameRef::from(&node["name"])?),
             field: node["field"]["name"].as_str().unwrap().to_string(),
+            _type: StructRefType::from(&node["type"])?,
         })
     }
 }
