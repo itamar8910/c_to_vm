@@ -56,7 +56,7 @@ impl External {
             "Decl" => match node["type"]["_nodetype"].as_str().unwrap(){
                 "FuncDecl" => Ok(External::FuncDecl(FuncDecl::from(&node)?)),
                 "Struct" => Ok(External::StructDecl(StructDecl::from(&node)?)),
-                "TypeDecl" => Ok(External::VarDecl(Decl::from(&node)?)),
+                "TypeDecl" | "PtrDecl"=> Ok(External::VarDecl(Decl::from(&node)?)),
                 _ => panic!(),
                 }
             _ => {
@@ -189,14 +189,18 @@ impl Statement {
 
 #[derive(Clone, Debug)]
 pub struct Return {
-    pub expr: Expression,
+    pub expr: Option<Expression>,
 }
 
 impl Return {
     fn from(node: &JsonNode) -> Result<Return, AstError> {
         return Ok(Return {
-            expr: Expression::from(&node["expr"])?,
-        });
+            expr: match &node["expr"] {
+                JsonNode::Null => None,
+                _ => Some(Expression::from(&node["expr"])?),
+            }
+        }
+        );
     }
 }
 
@@ -378,6 +382,7 @@ pub enum Expression {
     FuncCall(FuncCall),
     NameRef(NameRef),
     TypeName(TypeName), // used in sizeof()
+    Cast(Cast),
 }
 
 impl Expression {
@@ -391,6 +396,7 @@ impl Expression {
             "FuncCall" => Ok(Expression::FuncCall(FuncCall::from(&node)?)),
             "ID" | "ArrayRef" | "StructRef" => Ok(Expression::NameRef(NameRef::from(&node)?)),
             "Typename" => Ok(Expression::TypeName(TypeName::from(&node)?)),
+            "Cast" => Ok(Expression::Cast(Cast::from(&node)?)),
             _ => {
                 panic!(format!(
                     "Invalid expression type:{}",
@@ -822,6 +828,21 @@ impl TypeName {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Cast {
+    pub expr: Box<Expression>,
+    pub _type: Type,
+}
+impl Cast {
+    fn from(node: &JsonNode) -> Result<Cast, AstError> {
+        println!("CAST!");
+        Ok( Cast {
+            expr: Box::new(Expression::from(&node["expr"])?),
+            _type: Type::from(&node["to_type"]["type"]),
+        })
+    }
+}
+
 pub fn get_ast(path_to_c_source: &str) -> RootAstNode {
     assert!(path_to_c_source.ends_with(".c"));
     let output = Command::new(PATH_TO_PY_EXEC)
@@ -849,7 +870,7 @@ mod tests {
                 assert_eq!(func_def.decl.name, "main");
                 assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[0] {
-                    Statement::Return(ret) => match &ret.expr {
+                    Statement::Return(ret) => match ret.expr.as_ref().unwrap() {
                         Expression::Constant(c) => {
                             
                             assert!(matches!(c._type, Type::Int));
@@ -873,7 +894,7 @@ mod tests {
                 assert_eq!(func_def.decl.name, "main");
                 assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[0] {
-                    Statement::Return(ret) => match &ret.expr {
+                    Statement::Return(ret) => match ret.expr.as_ref().unwrap() {
                         Expression::BinaryOp(bop) => {
                             assert_eq!(bop.op_type, BinaryopType::ADD);
                             let left = &*bop.left;
@@ -1002,7 +1023,7 @@ mod tests {
                 assert!(matches!(func_def.decl.ret_type, Type::Int));
                 match &func_def.body.items[1] {
                     Statement::Return(ret) => {
-                        if let Expression::TernaryOp(top) = &ret.expr {
+                        if let Expression::TernaryOp(top) = ret.expr.as_ref().unwrap() {
                             if let Expression::BinaryOp(ref bop) = **&top.cond {
                                 match bop.op_type {
                                     BinaryopType::GT => {}
@@ -1191,19 +1212,24 @@ mod tests {
             External::FuncDef(func_def) => {
                 match &func_def.body.items[0]{
                     Statement::Return(ret) => {
-                        match &ret.expr{
-                            Expression::FuncCall(func_call) => {
-                                assert_eq!(func_call.name, "sub_3");
-                                assert_eq!(func_call.args.len(), 3);
-                                let arg0 = &*func_call.args[0];
-                                match arg0{
-                                    Expression::Constant(c) => {
-                                        assert_eq!(c.val, "10");
-                                    },
-                                    _ => panic!()
-                                }
-                            },
-                            _ => panic!()
+                        if let Some(expr) = &ret.expr {
+                            match &*expr{
+                                Expression::FuncCall(func_call) => {
+                                    assert_eq!(func_call.name, "sub_3");
+                                    assert_eq!(func_call.args.len(), 3);
+                                    let arg0 = &*func_call.args[0];
+                                    match arg0{
+                                        Expression::Constant(c) => {
+                                            assert_eq!(c.val, "10");
+                                        },
+                                        _ => panic!()
+                                    }
+                                },
+                                _ => panic!()
+                            };
+
+                        } else{
+                            panic!()
                         }
                     },
                     _ => panic!()

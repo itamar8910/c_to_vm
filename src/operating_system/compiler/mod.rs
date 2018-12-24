@@ -384,6 +384,10 @@ impl Compiler {
             },
             Expression::TypeName(_) => {
                 panic!("TypeName must be inside a sizeof() call");
+            },
+            Expression::Cast(cast) => {
+                // NOTE: in the current implementation casting has no actual effect
+                self.right_gen(&*cast.expr, scope, code);
             }
         }
     }
@@ -463,6 +467,7 @@ impl Compiler {
             if let StructRefType::ARROW = struct_ref._type {
                 if let Type::Ptr(pointed_t) = t{
                     struct_type = &*pointed_t;
+                    code.push("LOAD R1 R1".to_string());
                 }
             }
             if let Type::Struct(struct_name) = struct_type {
@@ -686,9 +691,11 @@ impl Compiler {
             AstNode::Statement(statement) => {
                 match statement {
                     Statement::Return(ret) => {
-                        self.right_gen(&ret.expr, &scope, code);
-                        code.push("ADD R2 BP 2".to_string());
-                        code.push("STR R2 R1 ".to_string());
+                        if let Some(ret_expr) = &ret.expr {
+                            self.right_gen(ret_expr, &scope, code);
+                            code.push("ADD R2 BP 2".to_string());
+                            code.push("STR R2 R1 ".to_string());
+                        }
                         code.push(format!("JUMP _{}_END", self.get_scope_data(scope).unwrap().parent_func));
                     }
                     Statement::Decl(decl) => {
