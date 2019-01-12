@@ -29,6 +29,11 @@ A C compiler that targets a VM, written is Rust
 
   Can load programs to memory, has an assembler and a assembly-level debugger. Offers a minimal libc with print functions and malloc & free implementation. 
 
+### Usage:
+- To run the tests: `./run_tests`
+- To compile & run a program: `cargo run run <main_source_file> <optionally other files to link with>`
+- To compile & debug a program: `cargo run debug <main_source_file> <optionally other files to link with>`
+
 #### TODO list:
 - Improve preprocessor: Add #define, #ifdef, macros.
 - Add typedef, check type validity at compile time.
